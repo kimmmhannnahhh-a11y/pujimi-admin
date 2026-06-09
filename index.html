@@ -107,7 +107,7 @@
 <script>
 const KEY = "AIzaSyAujRAOdwvPp1JZpZiyRq5S1p5TtjrujO0";
 const FS = "https://firestore.googleapis.com/v1/projects/pujimi-chatbot/databases/(default)/documents";
-const CARRIERS = ["KT", "SK", "LG"], SERVICES = ["인터넷", "TV", "집전화", "070"];
+const CARRIERS = ["KT 동시", "KT 단독", "SK 동시", "SK 단독", "LG 동시", "LG 단독"], SERVICES = ["인터넷", "TV", "집전화", "070"];
 let FAQ = [], FEES = {};
 
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
