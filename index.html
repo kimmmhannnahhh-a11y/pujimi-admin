@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐾 푸짐이 관리자</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: 'Malgun Gothic', sans-serif; margin: 0; background: #f4f2ff; color: #333; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 0 16px 80px; }
+  header { background: linear-gradient(135deg,#6c63ff,#8b7dff); color: #fff; padding: 22px 16px; text-align: center; }
+  header h1 { margin: 0; font-size: 22px; }
+  header p { margin: 4px 0 0; font-size: 12px; opacity: .9; }
+  .tabs { display: flex; gap: 6px; position: sticky; top: 0; background: #f4f2ff; padding: 12px 0; z-index: 10; }
+  .tab { flex: 1; padding: 10px; text-align: center; background: #fff; border: 1px solid #e5e0ff; border-radius: 10px; cursor: pointer; font-size: 13px; font-weight: 700; color: #888; }
+  .tab.active { background: #6c63ff; color: #fff; border-color: #6c63ff; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  .card { background: #fff; border: 1px solid #ece9ff; border-radius: 14px; padding: 18px 20px; margin-bottom: 14px; box-shadow: 0 1px 4px rgba(108,99,255,.06); }
+  .card h2 { margin: 0 0 6px; font-size: 16px; color: #6c63ff; }
+  .card .desc { font-size: 12.5px; color: #777; line-height: 1.6; margin-bottom: 12px; }
+  .bm-btn { display: inline-block; background: #27ae60; color: #fff !important; text-decoration: none; padding: 13px 22px; border-radius: 10px; font-size: 15px; font-weight: 800; box-shadow: 0 3px 10px rgba(39,174,96,.3); cursor: grab; }
+  .steps { counter-reset: s; margin: 14px 0 0; padding: 0; list-style: none; }
+  .steps li { counter-increment: s; position: relative; padding: 7px 0 7px 32px; font-size: 13px; line-height: 1.6; border-top: 1px dashed #eee; }
+  .steps li:before { content: counter(s); position: absolute; left: 0; top: 7px; width: 22px; height: 22px; background: #6c63ff; color: #fff; border-radius: 50%; text-align: center; font-size: 12px; font-weight: 700; line-height: 22px; }
+  button { background: #6c63ff; color: #fff; border: none; padding: 9px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 700; font-family: inherit; }
+  button.green { background: #27ae60; } button.gray { background: #aaa; } button.red { background: #e74c3c; padding: 5px 10px; font-size: 11.5px; }
+  input, textarea { width: 100%; padding: 9px 10px; border: 1px solid #ddd; border-radius: 7px; font-family: inherit; font-size: 13px; outline: none; }
+  input:focus, textarea:focus { border-color: #6c63ff; }
+  label { display: block; font-weight: 700; font-size: 12.5px; color: #555; margin: 10px 0 4px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .faq-item { background: #f9f8ff; border: 1px solid #ece9ff; border-radius: 9px; padding: 11px 13px; margin-bottom: 8px; }
+  .faq-q { font-weight: 800; color: #6c63ff; font-size: 12.5px; }
+  .faq-a { font-size: 12.5px; color: #444; margin-top: 4px; line-height: 1.55; word-break: break-word; }
+  table.fee { width: 100%; border-collapse: collapse; font-size: 13px; }
+  table.fee th, table.fee td { border: 1px solid #ece9ff; padding: 6px; text-align: center; }
+  table.fee th { background: #f3f0ff; color: #6c63ff; }
+  table.fee input { text-align: right; padding: 6px; }
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 18px; border-radius: 20px; font-size: 13px; opacity: 0; transition: .25s; z-index: 999; }
+  .toast.show { opacity: 1; }
+  .status { font-size: 12.5px; color: #888; margin-top: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🐾 푸짐이 관리자</h1>
+  <p>여기서 수정하면 푸짐이 챗봇에 바로 반영돼요</p>
+</header>
+<div class="wrap">
+  <div class="tabs">
+    <div class="tab active" data-t="gongsi" onclick="tab('gongsi')">📊 공시 업데이트</div>
+    <div class="tab" data-t="faq" onclick="tab('faq')">💬 FAQ 관리</div>
+    <div class="tab" data-t="fee" onclick="tab('fee')">🔧 설치비 관리</div>
+  </div>
+
+  <!-- 공시 업데이트 (요금계산기) -->
+  <div class="panel active" id="p-gongsi">
+    <div class="card">
+      <h2>📊 공시지원금 업데이트 (요금계산기)</h2>
+      <div class="desc">아래 <b>초록 버튼</b>을 브라우저 <b>즐겨찾기 바</b>에 한 번 드래그해 두세요. 그다음부터는 <b>제로노트에 로그인한 상태</b>에서 그 즐겨찾기를 누르면 → 전 기종·전 통신사·요금제별 공시지원금이 자동으로 크롤링돼서 요금계산기에 바로 반영돼요.</div>
+      <div style="text-align:center;padding:10px 0;">
+        <a class="bm-btn" id="bm" href="javascript:(async()%3D%3E%7B%0A%20%20const%20K%3D%22AIzaSyAujRAOdwvPp1JZpZiyRq5S1p5TtjrujO0%22%3B%0A%20%20const%20FS%3D%22https%3A%2F%2Ffirestore.googleapis.com%2Fv1%2Fprojects%2Fpujimi-chatbot%2Fdatabases%2F(default)%2Fdocuments%2Fphones%22%3B%0A%20%20const%20C%3D%5B%5B%22SKT%22%2C%22SKT%22%5D%2C%5B%22KT%22%2C%22KT%22%5D%2C%5B%22LGUPLUS%22%2C%22LGU%2B%22%5D%5D%3B%0A%20%20const%20w%3Ds%3D%3EparseInt((s%7C%7C%220%22).replace(%2F%2C%2Fg%2C%22%22))%7C%7C0%3B%0A%20%20const%20nm%3Ds%3D%3E(s%7C%7C%22%22).toLowerCase().replace(%2F%5C(%7C%5C)%2Fg%2C%22%22).replace(%2F%5Cb5g%5Cb%2Fg%2C%22%20%22).replace(%2F%5Cblte%5Cb%2Fg%2C%22%20%22).replace(%2F%ED%94%8C%EB%9F%AC%EC%8A%A4%2Fg%2C%22%2B%22).replace(%2Fplus%2Fg%2C%22%2B%22).replace(%2Fultra%2Fg%2C%22%EC%9A%B8%ED%8A%B8%EB%9D%BC%22).replace(%2Fpromax%2Fg%2C%22%ED%94%84%EB%A1%9C%EB%A7%A5%EC%8A%A4%22).replace(%2Fpro%5Cs*max%2Fg%2C%22%ED%94%84%EB%A1%9C%EB%A7%A5%EC%8A%A4%22).replace(%2Fpro%2Fg%2C%22%ED%94%84%EB%A1%9C%22).replace(%2Fedge%2Fg%2C%22%EC%97%A3%EC%A7%80%22).replace(%2Fgb%2Fg%2C%22g%22).replace(%2F%5B%5Cs_%5C-.%5D%2Fg%2C%22%22)%3B%0A%20%20let%20b%3Ddocument.getElementById(%22pjbox%22)%3Bif(!b)%7Bb%3Ddocument.createElement(%22div%22)%3Bb.id%3D%22pjbox%22%3Bdocument.body.appendChild(b)%3B%7D%0A%20%20b.style.cssText%3D%22position%3Afixed%3Bright%3A20px%3Bbottom%3A20px%3Bz-index%3A2147483647%3Bbackground%3A%236c63ff%3Bcolor%3A%23fff%3Bpadding%3A16px%2020px%3Bborder-radius%3A12px%3Bfont%3A700%2014px%20'Malgun%20Gothic'%2Csans-serif%3Bbox-shadow%3A0%204px%2024px%20rgba(0%2C0%2C0%2C.35)%3Bmax-width%3A320px%3Bline-height%3A1.5%22%3B%0A%20%20const%20S%3Dh%3D%3Eb.innerHTML%3Dh%3B%0A%20%20S(%22%F0%9F%90%BE%20%EA%B3%B5%EC%8B%9C%20%EB%8F%99%EA%B8%B0%ED%99%94%3Cbr%3E%3Cspan%20style%3D'font-weight%3A400%3Bfont-size%3A12px'%3E%EC%A0%9C%EB%A1%9C%EB%85%B8%ED%8A%B8%20%ED%81%AC%EB%A1%A4%EB%A7%81%20%EC%A4%91...%20%E2%8F%B3%3C%2Fspan%3E%22)%3B%0A%20%20try%7B%0A%20%20%20%20const%20xe%3D%7B%7D%3B%0A%20%20%20%20for(const%5Bt%5Dof%20C)%7Bconst%20j%3Dawait(await%20fetch('%2Fapi%2Fdata%2Fget_device_list.php%3Ftelecom_id%3D'%2Bt%2B'%26manufacturer_id%3D%26sort_type1%3DPHONE%26sort_type2%3DRELEASE_DT_DESC%26keyword%3D%26search_group%3D%26search_support_mnp%3D'%2C%7Bcredentials%3A'include'%7D)).json()%3Bxe%5Bt%5D%3D(j%26%26j.data)%7C%7C%5B%5D%3B%7D%0A%20%20%20%20if(C.reduce((a%2C%5Bt%5D)%3D%3Ea%2Bxe%5Bt%5D.length%2C0)%3D%3D%3D0)%7BS(%22%E2%9A%A0%EF%B8%8F%20%EC%A0%9C%EB%A1%9C%EB%85%B8%ED%8A%B8%20%EB%8D%B0%EC%9D%B4%ED%84%B0%20%EB%AA%BB%20%EA%B0%80%EC%A0%B8%EC%98%B4%3Cbr%3E%3Cspan%20style%3D'font-weight%3A400%3Bfont-size%3A12px'%3E%EC%A0%9C%EB%A1%9C%EB%85%B8%ED%8A%B8%20%3Cb%3E%EB%A1%9C%EA%B7%B8%EC%9D%B8%3C%2Fb%3E%20%ED%9B%84%20%EB%8B%A4%EC%8B%9C!%3C%2Fspan%3E%22)%3Bb.style.background%3D%22%23e67e22%22%3Breturn%3B%7D%0A%20%20%20%20const%20pj%3Dawait(await%20fetch(FS%2B%22%3Fkey%3D%22%2BK%2B%22%26pageSize%3D300%22)).json()%3B%0A%20%20%20%20const%20ids%3Dpj.documents.map(d%3D%3EdecodeURIComponent(d.name.split(%22%2F%22).pop()))%3B%0A%20%20%20%20const%20ix%3D%7B%7D%2Cbx%3D%7B%7D%3Bids.forEach(i%3D%3E%7Bconst%20n%3Dnm(i)%3Bix%5Bn%5D%3Di%3Bif(!%2F%5Cd%2B(g%7Ctb)%5C)%3F%24%2Fi.test(i))bx%5Bn%5D%3Di%3B%7D)%3B%0A%20%20%20%20const%20fp%3Dx%3D%3E%7Bconst%20n%3Dnm(x)%3Bif(ix%5Bn%5D)return%20ix%5Bn%5D%3Bconst%20z%3Dn.replace(%2F(512g%7C256g%7C128g%7C1tb%7C64g%7C2tb)%24%2F%2C%22%22)%3Breturn%20bx%5Bz%5D%7C%7Cnull%3B%7D%3B%0A%20%20%20%20const%20pm%3D%7B%7D%3Bfor(const%5Bt%2Cc%5Dof%20C)for(const%20d%20of%20xe%5Bt%5D)%7Bconst%20p%3Dfp(d.model_name)%3Bif(!p)continue%3B(pm%5Bp%5D%3Dpm%5Bp%5D%7C%7C%7B%7D)%5Bc%5D%3Dd.device_idx%3B%7D%0A%20%20%20%20const%20L%3DObject.keys(pm)%3Blet%20docs%3D0%2Ccells%3D0%2Cerrs%3D0%2Cdone%3D0%3B%0A%20%20%20%20for(const%20p%20of%20L)%7Bdone%2B%2B%3Bif(done%255%3D%3D%3D0%7C%7Cdone%3D%3D%3DL.length)S(%22%F0%9F%90%BE%20%EB%8F%99%EA%B8%B0%ED%99%94%20%EC%A4%91%3Cbr%3E%3Cspan%20style%3D'font-weight%3A400%3Bfont-size%3A12px'%3E%EC%9A%94%EA%B8%88%EC%A0%9C%EB%B3%84%20%EB%B0%98%EC%98%81...%20%22%2Bdone%2B%22%2F%22%2BL.length%2B%22%3Cbr%3E%EB%B3%80%EA%B2%BD%20%22%2Bcells%2B%22%EA%B3%B3%3C%2Fspan%3E%22)%3B%0A%20%20%20%20%20%20try%7Bconst%20cm%3D%7B%7D%3B%0A%20%20%20%20%20%20%20%20for(const%5Bt%2Cc%5Dof%20C)%7Bconst%20di%3Dpm%5Bp%5D%5Bc%5D%3Bif(!di)continue%3Bconst%20pl%3Dawait(await%20fetch('%2Fapi%2Fdata%2Fget_mobile_plan_list.php%3Ftelecom_id%3D'%2Bt%2B'%26device_idx%3D'%2Bdi%2B'%26plan_group%3D%26sort_type%3D%26join_type%3D%26join_flag%3D%26plan_idx%3D%26keyword%3D'%2C%7Bcredentials%3A'include'%7D)).json()%3Bconst%20m%3D%7B%7D%3Bfor(const%20q%20of(pl.data%7C%7C%5B%5D))%7Bconst%20pr%3Dw(q.price)%2Ccg%3Dw(q.support_money_change)%2Cmn%3Dw(q.support_money_mnp)%3Bif(!m%5Bpr%5D%7C%7Ccg%3Em%5Bpr%5D.chg)m%5Bpr%5D%3D%7Bchg%3Acg%2Cmnp%3Amn%7D%3B%7Dcm%5Bc%5D%3Dm%3B%7D%0A%20%20%20%20%20%20%20%20const%20doc%3Dawait(await%20fetch(FS%2B%22%2F%22%2BencodeURIComponent(p)%2B%22%3Fkey%3D%22%2BK)).json()%3B%0A%20%20%20%20%20%20%20%20const%20pls%3Ddoc.fields%26%26doc.fields.plans%26%26doc.fields.plans.arrayValue%26%26doc.fields.plans.arrayValue.values%3Bif(!pls)continue%3B%0A%20%20%20%20%20%20%20%20let%20ch%3Dfalse%3B%0A%20%20%20%20%20%20%20%20for(const%20q%20of%20pls)for(const%5B%2Cc%5Dof%20C)%7Bconst%20m%3Dcm%5Bc%5D%3Bif(!m)continue%3Bconst%20o%3Dq.mapValue.fields%5Bc%5D%3Bif(!o%7C%7C!o.mapValue)continue%3Bconst%20f%3Do.mapValue.fields%3Bif(!f.plan_monthly)continue%3Bconst%20t%3Dm%5BNumber(f.plan_monthly.integerValue)%5D%3Bif(!t)continue%3Bconst%20oc%3Df.support_chg%3FNumber(f.support_chg.integerValue)%3Anull%2Com%3Df.support_mnp%3FNumber(f.support_mnp.integerValue)%3Anull%3Bif(oc!%3D%3Dt.chg%7C%7Com!%3D%3Dt.mnp)%7Bf.support_chg%3D%7BintegerValue%3AString(t.chg)%7D%3Bf.support_mnp%3D%7BintegerValue%3AString(t.mnp)%7D%3Bf.announce_date%3D%7BstringValue%3Anew%20Date().toISOString().slice(0%2C10)%7D%3Bch%3Dtrue%3Bcells%2B%2B%3B%7D%7D%0A%20%20%20%20%20%20%20%20if(ch)%7Bdoc.fields.uploaded_at%3D%7BstringValue%3Anew%20Date().toISOString()%7D%3Bconst%20u%3Dawait%20fetch(FS%2B%22%2F%22%2BencodeURIComponent(p)%2B%22%3Fkey%3D%22%2BK%2B%22%26updateMask.fieldPaths%3Dplans%26updateMask.fieldPaths%3Duploaded_at%22%2C%7Bmethod%3A%22PATCH%22%2Cheaders%3A%7B%22Content-Type%22%3A%22application%2Fjson%22%7D%2Cbody%3AJSON.stringify(%7Bfields%3A%7Bplans%3Adoc.fields.plans%2Cuploaded_at%3Adoc.fields.uploaded_at%7D%7D)%7D)%3Bif(u.ok)docs%2B%2B%3Belse%20errs%2B%2B%3B%7D%0A%20%20%20%20%20%20%7Dcatch(e)%7Berrs%2B%2B%3B%7D%0A%20%20%20%20%7D%0A%20%20%20%20S(%22%E2%9C%85%20%3Cb%3E%EB%8F%99%EA%B8%B0%ED%99%94%20%EC%99%84%EB%A3%8C!%3C%2Fb%3E%3Cbr%3E%3Cspan%20style%3D'font-weight%3A400%3Bfont-size%3A13px'%3E%22%2Bdocs%2B%22%EA%B0%9C%20%EA%B8%B0%EC%A2%85%20%2F%20%22%2Bcells%2B%22%EA%B3%B3%20%EC%9A%94%EA%B8%88%EC%A0%9C%EB%B3%84%20%EA%B3%B5%EC%8B%9C%20%EC%B5%9C%EC%8B%A0%ED%99%94%22%2B(errs%3F%22%3Cbr%3E(%EC%8B%A4%ED%8C%A8%20%22%2Berrs%2B%22)%22%3A%22%22)%2B%22%3Cbr%3E%ED%91%B8%EC%A7%90%EC%9D%B4%EC%97%90%20%EB%B0%94%EB%A1%9C%20%EB%B0%98%EC%98%81%EB%90%90%EC%96%B4%EC%9A%94%20%F0%9F%90%BE%3C%2Fspan%3E%22)%3Bb.style.background%3D%22%2327ae60%22%3BsetTimeout(()%3D%3Eb%26%26b.remove()%2C15000)%3B%0A%20%20%7Dcatch(e)%7BS(%22%E2%9D%8C%20%EC%98%A4%EB%A5%98%3A%20%22%2Be.message%2B%22%3Cbr%3E%3Cspan%20style%3D'font-weight%3A400%3Bfont-size%3A12px'%3E%EC%A0%9C%EB%A1%9C%EB%85%B8%ED%8A%B8%20%EB%A1%9C%EA%B7%B8%EC%9D%B8%20%ED%99%95%EC%9D%B8!%3C%2Fspan%3E%22)%3Bb.style.background%3D%22%23e74c3c%22%3B%7D%0A%7D)()%3B">📲 공시 업데이트</a>
+        <div style="font-size:11px;color:#aaa;margin-top:6px;">↑ 이 버튼을 즐겨찾기 바로 드래그</div>
+      </div>
+      <ol class="steps">
+        <li>위 <b>📲 공시 업데이트</b> 버튼을 브라우저 <b>즐겨찾기 바로 드래그</b> (최초 1회만)</li>
+        <li><b>제로노트(xeronote.co.kr)</b> 접속 → <b>로그인</b></li>
+        <li>즐겨찾기에 추가된 <b>📲 공시 업데이트</b> 클릭</li>
+        <li>우하단에 "동기화 완료!" 뜨면 끝 → 요금계산기 새로고침</li>
+      </ol>
+      <div class="status" id="gongsi-status">마지막 업데이트 확인 중...</div>
+    </div>
+  </div>
+
+  <!-- FAQ 관리 -->
+  <div class="panel" id="p-faq">
+    <div class="card">
+      <h2>💬 FAQ 추가</h2>
+      <div class="desc">손님이 챗봇에 특정 단어를 치면 정해진 답변이 떠요. (예: 키워드 "쿠키" → 쿠키삭제 안내)</div>
+      <label>키워드 <span style="font-weight:400;color:#999;">(쉼표로 여러 개)</span></label>
+      <input id="f-trig" placeholder="예: 쿠키, 쿠키삭제">
+      <label>답변 <span style="font-weight:400;color:#999;">(HTML 가능: &lt;b&gt;굵게&lt;/b&gt;, &lt;br&gt;)</span></label>
+      <textarea id="f-ans" rows="3" placeholder="답변 내용"></textarea>
+      <div style="margin-top:10px;"><button class="green" onclick="addFaq()">+ FAQ 추가</button></div>
+    </div>
+    <div class="card">
+      <h2>등록된 FAQ <span id="faq-cnt" style="font-size:12px;color:#888;"></span></h2>
+      <div id="faq-list"><div style="color:#aaa;font-size:13px;">불러오는 중...</div></div>
+    </div>
+  </div>
+
+  <!-- 설치비 관리 -->
+  <div class="panel" id="p-fee">
+    <div class="card">
+      <h2>🔧 설치비 금액</h2>
+      <div class="desc">설치비계산기에서 "설치비 확인하기" 누르면 나오는 금액이에요. (빈칸이면 "준비중"으로 떠요)</div>
+      <table class="fee">
+        <thead><tr><th>설치비</th><th>인터넷</th><th>TV</th><th>집전화</th><th>070</th></tr></thead>
+        <tbody id="fee-body"></tbody>
+      </table>
+      <div style="margin-top:12px;"><button class="green" onclick="saveFee()">💾 설치비 저장</button></div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const KEY = "AIzaSyAujRAOdwvPp1JZpZiyRq5S1p5TtjrujO0";
+const FS = "https://firestore.googleapis.com/v1/projects/pujimi-chatbot/databases/(default)/documents";
+const CARRIERS = ["KT", "SK", "LG"], SERVICES = ["인터넷", "TV", "집전화", "070"];
+let FAQ = [], FEES = {};
+
+function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2000); }
+function tab(name){ document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('active',e.dataset.t===name)); document.querySelectorAll('.panel').forEach(e=>e.classList.remove('active')); document.getElementById('p-'+name).classList.add('active'); }
+
+// ===== Firestore JSON-string 헬퍼 =====
+async function loadJson(docPath, def){
+  try{ const r=await fetch(FS+'/'+docPath+'?key='+KEY); if(!r.ok) return def; const d=await r.json(); const s=d.fields&&d.fields.json&&d.fields.json.stringValue; return s?JSON.parse(s):def; }catch(e){ return def; }
+}
+async function saveJson(docPath, obj){
+  const body={fields:{json:{stringValue:JSON.stringify(obj)}, updated_at:{stringValue:new Date().toISOString()}}};
+  const r=await fetch(FS+'/'+docPath+'?key='+KEY+'&updateMask.fieldPaths=json&updateMask.fieldPaths=updated_at',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  return r.ok;
+}
+
+// ===== FAQ =====
+function renderFaq(){
+  document.getElementById('faq-cnt').textContent='('+FAQ.length+'개)';
+  const el=document.getElementById('faq-list');
+  if(!FAQ.length){ el.innerHTML='<div style="color:#aaa;font-size:13px;">등록된 FAQ가 없어요.</div>'; return; }
+  el.innerHTML=FAQ.map((f,i)=>{
+    const ans=Array.isArray(f.answer)?f.answer:[f.answer];
+    return '<div class="faq-item"><div class="faq-q">키워드: '+esc((f.triggers||[]).join(', '))+'</div><div class="faq-a">'+ans.map(esc).join('<br>—<br>')+'</div><div style="margin-top:7px;"><button class="red" onclick="delFaq('+i+')">삭제</button></div></div>';
+  }).join('');
+}
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+async function addFaq(){
+  const trig=document.getElementById('f-trig').value.trim();
+  const ans=document.getElementById('f-ans').value.trim();
+  if(!trig||!ans){ toast('키워드와 답변을 입력하세요'); return; }
+  FAQ.push({ triggers: trig.split(',').map(s=>s.trim()).filter(Boolean), answer:[ans] });
+  if(await saveJson('config/faq',FAQ)){ document.getElementById('f-trig').value='';document.getElementById('f-ans').value=''; renderFaq(); toast('✅ 추가됐어요 (챗봇에 바로 반영)'); }
+  else toast('저장 실패');
+}
+async function delFaq(i){ if(!confirm('이 FAQ를 삭제할까요?'))return; FAQ.splice(i,1); if(await saveJson('config/faq',FAQ)){ renderFaq(); toast('삭제됐어요'); } }
+
+// ===== 설치비 =====
+function renderFee(){
+  document.getElementById('fee-body').innerHTML=CARRIERS.map(c=>
+    '<tr><th>'+c+'</th>'+SERVICES.map(s=>'<td><input inputmode="numeric" data-c="'+c+'" data-s="'+s+'" value="'+((FEES[c]&&FEES[c][s])||'')+'" placeholder="원"></td>').join('')+'</tr>'
+  ).join('');
+}
+async function saveFee(){
+  const obj={}; CARRIERS.forEach(c=>obj[c]={});
+  document.querySelectorAll('#fee-body input').forEach(inp=>{ const v=inp.value.replace(/[^0-9]/g,''); obj[inp.dataset.c][inp.dataset.s]= v?Number(v):null; });
+  if(await saveJson('config/install_fees',obj)){ FEES=obj; toast('✅ 저장됐어요 (챗봇에 바로 반영)'); } else toast('저장 실패');
+}
+
+// ===== 공시 상태 =====
+async function loadGongsiStatus(){
+  try{
+    const r=await fetch(FS+'/phones/'+encodeURIComponent('갤럭시 S25')+'?key='+KEY); const d=await r.json();
+    const u=d.fields&&d.fields.uploaded_at&&d.fields.uploaded_at.stringValue;
+    document.getElementById('gongsi-status').textContent= u? '마지막 업데이트: '+new Date(u).toLocaleString('ko-KR') : '업데이트 기록 없음';
+  }catch(e){ document.getElementById('gongsi-status').textContent=''; }
+}
+
+(async()=>{
+  FAQ=await loadJson('config/faq',[]); renderFaq();
+  FEES=await loadJson('config/install_fees',{}); renderFee();
+  loadGongsiStatus();
+})();
+</script>
+</body>
+</html>
