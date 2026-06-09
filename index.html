@@ -54,6 +54,8 @@
     <div class="tab" data-t="faq" onclick="tab('faq')">💬 FAQ</div>
     <div class="tab" data-t="fee" onclick="tab('fee')">🔧 설치비</div>
     <div class="tab" data-t="menu" onclick="tab('menu')">📋 메뉴</div>
+    <div class="tab" data-t="know" onclick="tab('know')">📚 지식</div>
+    <div class="tab" data-t="gloss" onclick="tab('gloss')">📖 용어</div>
   </div>
 
   <!-- 공시 업데이트 -->
@@ -129,6 +131,41 @@
     </div>
     <div><button class="green" onclick="saveMenus()" style="width:100%;padding:12px;font-size:15px;">💾 메뉴 저장 (챗봇에 반영)</button></div>
   </div>
+  <!-- 지식 관리 -->
+  <div class="panel" id="p-know">
+    <div class="card">
+      <h2>📚 지식 추가</h2>
+      <div class="desc">푸짐이가 답할 때 참고하는 회사 정보·규정이에요. 질문에 키워드가 있으면 이 내용을 보고 답해요.</div>
+      <label>키워드 <span style="font-weight:400;color:#999;">(쉼표로 여러 개)</span></label>
+      <input id="k-kw" placeholder="예: 연차, 휴가, 연차신청">
+      <label>내용</label>
+      <textarea id="k-content" rows="4" placeholder="회사 정보/규정 내용"></textarea>
+      <div style="margin-top:10px;"><button class="green" onclick="addKnow()">+ 지식 추가</button></div>
+    </div>
+    <div class="card">
+      <h2>등록된 지식 <span id="know-cnt" style="font-size:12px;color:#888;"></span></h2>
+      <input id="know-search" placeholder="🔍 검색 (키워드/내용)" oninput="renderKnow()" style="margin-bottom:10px;">
+      <div id="know-list"></div>
+    </div>
+  </div>
+
+  <!-- 용어사전 -->
+  <div class="panel" id="p-gloss">
+    <div class="card">
+      <h2>📖 용어 추가</h2>
+      <div class="desc">용어를 물어보면 푸짐이가 이 뜻을 알려줘요.</div>
+      <label>용어</label>
+      <input id="g-term" placeholder="예: KOS">
+      <label>뜻</label>
+      <textarea id="g-def" rows="2" placeholder="용어 설명"></textarea>
+      <div style="margin-top:10px;"><button class="green" onclick="addGloss()">+ 용어 추가</button></div>
+    </div>
+    <div class="card">
+      <h2>등록된 용어 <span id="gloss-cnt" style="font-size:12px;color:#888;"></span></h2>
+      <input id="gloss-search" placeholder="🔍 용어 검색" oninput="renderGloss()" style="margin-bottom:10px;">
+      <div id="gloss-list"></div>
+    </div>
+  </div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -194,10 +231,43 @@ async function saveMenus(){ if(await saveJson('config/menus',MENUS)){ toast('✅
 // 공시 상태
 async function loadGongsiStatus(){ try{ const d=await (await fetch(FS+'/phones/'+encodeURIComponent('갤럭시 S25')+'?key='+KEY)).json(); const u=d.fields&&d.fields.uploaded_at&&d.fields.uploaded_at.stringValue; document.getElementById('gongsi-status').textContent= u?'마지막 업데이트: '+new Date(u).toLocaleString('ko-KR'):'업데이트 기록 없음'; }catch(e){ document.getElementById('gongsi-status').textContent=''; } }
 
+// 지식
+let KNOW = [], GLOSS = {};
+function renderKnow(){
+  const q=(document.getElementById('know-search').value||'').toLowerCase();
+  document.getElementById('know-cnt').textContent='('+KNOW.length+'개)';
+  const el=document.getElementById('know-list');
+  const f=KNOW.map((s,i)=>({s,i})).filter(({s})=> !q || (s.keywords||[]).join(',').toLowerCase().includes(q) || (s.content||'').toLowerCase().includes(q));
+  if(!f.length){ el.innerHTML='<div style="color:#aaa;font-size:13px;">없음</div>'; return; }
+  el.innerHTML=f.slice(0,60).map(({s,i})=>
+    '<div class="faq-item"><label style="margin:0 0 3px;">키워드</label><input data-i="'+i+'" oninput="KNOW[this.dataset.i].keywords=this.value.split(\',\').map(x=>x.trim()).filter(Boolean)" value="'+esc((s.keywords||[]).join(', '))+'">'
+    +'<label style="margin:6px 0 3px;">내용</label><textarea data-i="'+i+'" rows="3" oninput="KNOW[this.dataset.i].content=this.value">'+esc(s.content)+'</textarea>'
+    +'<div style="margin-top:6px;"><button class="red" data-i="'+i+'" onclick="delKnow(this.dataset.i)">삭제</button></div></div>'
+  ).join('')+(f.length>60?'<div style="color:#aaa;font-size:12px;text-align:center;padding:8px;">검색으로 좁혀보세요 ('+f.length+'개 중 60개)</div>':'');
+}
+async function addKnow(){ const kw=document.getElementById('k-kw').value.trim(), c=document.getElementById('k-content').value.trim(); if(!kw||!c){toast('키워드와 내용을 입력');return;} KNOW.push({keywords:kw.split(',').map(x=>x.trim()).filter(Boolean), content:c}); if(await saveJson('config/knowledge',KNOW)){ document.getElementById('k-kw').value='';document.getElementById('k-content').value=''; renderKnow(); toast('✅ 지식 추가됨'); } }
+async function delKnow(i){ if(!confirm('삭제할까요?'))return; KNOW.splice(Number(i),1); if(await saveJson('config/knowledge',KNOW)){ renderKnow(); toast('삭제됨'); } }
+// 용어
+function renderGloss(){
+  const q=(document.getElementById('gloss-search').value||'').toLowerCase();
+  const keys=Object.keys(GLOSS);
+  document.getElementById('gloss-cnt').textContent='('+keys.length+'개)';
+  const el=document.getElementById('gloss-list');
+  const f=keys.filter(k=> !q || k.toLowerCase().includes(q) || (GLOSS[k]||'').toLowerCase().includes(q));
+  if(!f.length){ el.innerHTML='<div style="color:#aaa;font-size:13px;">없음</div>'; return; }
+  el.innerHTML=f.slice(0,80).map(k=>
+    '<div class="faq-item"><div class="faq-q">'+esc(k)+'</div><textarea data-k="'+esc(k)+'" rows="2" oninput="GLOSS[this.dataset.k]=this.value">'+esc(GLOSS[k])+'</textarea><div style="margin-top:6px;"><button class="red" data-k="'+esc(k)+'" onclick="delGloss(this.dataset.k)">삭제</button></div></div>'
+  ).join('')+(f.length>80?'<div style="color:#aaa;font-size:12px;text-align:center;padding:8px;">검색으로 좁혀보세요 ('+f.length+'개 중 80개)</div>':'');
+}
+async function addGloss(){ const t=document.getElementById('g-term').value.trim(), d=document.getElementById('g-def').value.trim(); if(!t||!d){toast('용어와 뜻을 입력');return;} GLOSS[t]=d; if(await saveJson('config/glossary',GLOSS)){ document.getElementById('g-term').value='';document.getElementById('g-def').value=''; renderGloss(); toast('✅ 용어 추가됨'); } }
+async function delGloss(k){ if(!confirm('삭제할까요?'))return; delete GLOSS[k]; if(await saveJson('config/glossary',GLOSS)){ renderGloss(); toast('삭제됨'); } }
+
 (async()=>{
   FAQ=await loadJson('config/faq',[]); renderFaq();
   FEES=await loadJson('config/install_fees',{}); renderFee();
   MENUS=await loadJson('config/menus',{quick:[],side:[]}); renderMenus();
+  KNOW=await loadJson('config/knowledge',[]); renderKnow();
+  GLOSS=await loadJson('config/glossary',{}); renderGloss();
   loadGongsiStatus();
 })();
 </script>
