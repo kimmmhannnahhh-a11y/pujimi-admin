@@ -60,6 +60,11 @@
   .org-children { padding-left:14px; border-left:1px dashed #ece9ff; margin-left:11px; }
   .org-team-del { border:none; background:none; color:#d6d0f0; cursor:pointer; font-size:15px; padding:0 3px; line-height:1; }
   .org-team-del:hover { color:#e74c3c; }
+  .org-team-edit { border:none; background:none; color:#c4bdee; cursor:pointer; font-size:13px; padding:0 3px; line-height:1; }
+  .org-team-edit:hover { color:#6c63ff; }
+  .org-team.org-drop > .org-row { background:#eef0ff; box-shadow:inset 0 0 0 2px #6c63ff; }
+  .org-emp[draggable=true] { cursor:grab; }
+  .org-emp[draggable=true]:active { cursor:grabbing; }
   .org-emp { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 8px; border-radius:8px; }
   .org-emp.clickable { cursor:pointer; }
   .org-emp.clickable:hover { background:#fbf3f3; }
@@ -107,12 +112,12 @@
 </header>
 <div class="wrap">
   <div class="tabs">
-    <div class="tab active" data-t="gongsi" onclick="tab('gongsi')">📊 공시</div>
-    <div class="tab" data-t="faq" onclick="tab('faq')">💬 FAQ</div>
-    <div class="tab" data-t="fee" onclick="tab('fee')">🔧 설치비</div>
-    <div class="tab" data-t="menu" onclick="tab('menu')">📋 메뉴</div>
-    <div class="tab" data-t="gloss" onclick="tab('gloss')">📖 용어</div>
-    <div class="tab" data-t="emp" onclick="tab('emp')">👥 직원</div>
+    <div class="tab active" data-t="gongsi" onclick="tab('gongsi')">공시</div>
+    <div class="tab" data-t="faq" onclick="tab('faq')">FAQ</div>
+    <div class="tab" data-t="fee" onclick="tab('fee')">설치비</div>
+    <div class="tab" data-t="menu" onclick="tab('menu')">메뉴</div>
+    <div class="tab" data-t="gloss" onclick="tab('gloss')">용어</div>
+    <div class="tab" data-t="emp" onclick="tab('emp')">직원</div>
   </div>
 
   <!-- 공시 업데이트 -->
@@ -210,7 +215,7 @@
   <!-- 직원 관리 -->
   <div class="panel" id="p-emp">
     <div class="card" id="emp-team-card" style="display:none;">
-      <h2>👥 팀 관리</h2>
+      <h2><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6c63ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:5px;"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>팀 관리</h2>
       <div class="desc">소속(사업자·사업부)과 팀 이름을 넣어 팀을 만들어요. 추가된 팀·직원은 좌측 상단 <b>조직도</b>에서 관리해요.</div>
       <label>소속 <span style="font-weight:400;color:#999;">(사업자 · 사업부)</span></label>
       <input id="emp-newgroup" list="group-list" placeholder="예: 웨이브넷 · 유통사업부">
@@ -222,7 +227,7 @@
       </div>
     </div>
     <div class="card">
-      <h2>➕ 직원 추가 <span id="emp-team-label" style="font-size:12px;color:#888;"></span></h2>
+      <h2><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#6c63ff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;margin-right:5px;"><path d="M5 12h14"/><path d="M12 5v14"/></svg>직원 추가 <span id="emp-team-label" style="font-size:12px;color:#888;"></span></h2>
       <div class="desc">직원은 여기서 만든 <b>아이디 + 비밀번호</b>로 푸짐이(관리자·챗봇)에 로그인해요.</div>
       <label>아이디 <span style="font-weight:400;color:#999;">(영문/숫자)</span></label>
       <input id="emp-id" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="예: hong123">
@@ -522,7 +527,8 @@ function orgEmpRow(e, showTeam){
   const sub='<span class="org-sub">'+esc(e.loginId||'')+(showTeam&&e.team?(' · '+esc(e.team)):'')+'</span>';
   const blocked=e.active?'':'<span class="org-blocked">차단됨</span>';
   const actions=canFire?'<div class="org-emp-actions" style="display:none;"><button class="red" data-fire data-uid="'+e.uid+'" data-name="'+esc(e.name)+'">퇴사</button></div>':'';
-  return '<div class="org-emp'+(canFire?' clickable':'')+'"><div class="org-emp-main"><span class="org-rank">'+roleLabel(e.role)+'</span><b>'+esc(e.name)+'</b> '+sub+' '+blocked+'</div>'+actions+'</div>';
+  const drag=canFire?' draggable="true" data-empuid="'+e.uid+'"':'';
+  return '<div class="org-emp'+(canFire?' clickable':'')+'"'+drag+'><div class="org-emp-main"><span class="org-rank">'+roleLabel(e.role)+'</span><b>'+esc(e.name)+'</b> '+sub+' '+blocked+'</div>'+actions+'</div>';
 }
 function renderOrg(){
   const wrap=document.getElementById('org-tree'); if(!wrap) return;
@@ -539,9 +545,11 @@ function renderOrg(){
       const G=groups[g]; const tkeys=Object.keys(G.teams).sort();
       const teams=tkeys.map(tn=>{
         const T=G.teams[tn];
+        const isSup=AUTH.me&&AUTH.me.role==='superadmin';
+        const edit=(T.id&&isSup)?'<button class="org-team-edit" data-editteam data-id="'+T.id+'" data-name="'+esc(tn)+'" title="팀 수정">✎</button>':'';
         const del=T.id?'<button class="org-team-del" data-delteam data-id="'+T.id+'" data-name="'+esc(tn)+'" title="팀 삭제">×</button>':'';
-        const emps=T.emps.length? T.emps.map(e=>orgEmpRow(e,false)).join('') : '<div class="org-empty2">직원 없음</div>';
-        return '<div class="org-team"><div class="org-row org-toggle"><span class="chev">▸</span><span class="org-name">'+esc(tn)+'</span><span class="org-cnt">'+T.emps.length+'</span>'+del+'</div><div class="org-children" style="display:none;">'+emps+'</div></div>';
+        const emps=T.emps.length? T.emps.map(e=>orgEmpRow(e,false)).join('') : '<div class="org-empty2">직원 없음 · 여기로 드래그</div>';
+        return '<div class="org-team" data-teamname="'+esc(tn)+'"><div class="org-row org-toggle"><span class="chev">▸</span><span class="org-name">'+esc(tn)+'</span><span class="org-cnt">'+T.emps.length+'</span>'+edit+del+'</div><div class="org-children" style="display:none;">'+emps+'</div></div>';
       }).join('');
       return '<div class="org-group"><div class="org-row org-toggle"><span class="chev">▸</span><span class="org-name">'+esc(g)+'</span><span class="org-cnt">'+G.count+'</span></div><div class="org-children" style="display:none;">'+teams+'</div></div>';
    }).join('');
@@ -549,6 +557,8 @@ function renderOrg(){
 document.getElementById('org-tree').addEventListener('click', function(e){
   const fire=e.target.closest('[data-fire]');
   if(fire){ e.stopPropagation(); delEmp(fire.getAttribute('data-uid'), fire.getAttribute('data-name')); return; }
+  const edt=e.target.closest('[data-editteam]');
+  if(edt){ e.stopPropagation(); editTeam(edt.getAttribute('data-id'), edt.getAttribute('data-name')); return; }
   const delt=e.target.closest('[data-delteam]');
   if(delt){ e.stopPropagation(); delTeam(delt.getAttribute('data-id'), delt.getAttribute('data-name')); return; }
   const emp=e.target.closest('.org-emp');
@@ -556,6 +566,38 @@ document.getElementById('org-tree').addEventListener('click', function(e){
   const tog=e.target.closest('.org-toggle');
   if(tog){ const ch=tog.nextElementSibling; if(ch&&ch.classList.contains('org-children')){ const open=ch.style.display!=='none'; ch.style.display=open?'none':'block'; const c=tog.querySelector('.chev'); if(c) c.textContent=open?'▸':'▾'; } }
 });
+
+// 팀 수정 (소속·이름 변경) — 이름 바꾸면 소속 직원 team도 같이 갱신
+async function editTeam(id, oldName){
+  const t=TEAMS.find(x=>x.id===id)||{group:'',name:oldName};
+  const group=prompt('소속 (사업자 · 사업부)', t.group||''); if(group===null) return;
+  const name=prompt('팀 이름', oldName); if(name===null||!name.trim()) return;
+  const nm=name.trim(), gp=group.trim();
+  const r=await fetch(FS+'/teams/'+id+'?key='+KEY+'&updateMask.fieldPaths=name&updateMask.fieldPaths=group',{method:'PATCH',headers:authHeaders(),body:JSON.stringify({fields:{name:{stringValue:nm},group:{stringValue:gp}}})});
+  if(!r.ok){ toast('실패 (권한 확인)'); return; }
+  if(nm!==oldName){
+    for(const e of EMPLOYEES.filter(x=>x.team===oldName)){
+      await fetch(FS+'/employees/'+e.uid+'?key='+KEY+'&updateMask.fieldPaths=team',{method:'PATCH',headers:authHeaders(),body:JSON.stringify({fields:{team:{stringValue:nm}}})});
+    }
+  }
+  toast('팀 수정됨'); loadEmployees();
+}
+// 직원 드래그로 팀 이동 (최고관리자 전용)
+async function moveEmpToTeam(uid, teamName){
+  if(teamName==='(팀 없음)') teamName='';
+  const emp=EMPLOYEES.find(x=>x.uid===uid); if(!emp || emp.team===teamName) return;
+  if(emp.role==='superadmin'){ toast('최고관리자는 이동할 수 없어요'); return; }
+  const r=await fetch(FS+'/employees/'+uid+'?key='+KEY+'&updateMask.fieldPaths=team',{method:'PATCH',headers:authHeaders(),body:JSON.stringify({fields:{team:{stringValue:teamName}}})});
+  if(r.ok){ toast(emp.name+' → '+(teamName||'(팀 없음)')+' 이동'); loadEmployees(); } else toast('실패 (권한 확인)');
+}
+(function(){
+  const tree=document.getElementById('org-tree'); if(!tree) return; let dragUid=null;
+  tree.addEventListener('dragstart', e=>{ const r=e.target.closest('[data-empuid]'); if(r){ dragUid=r.getAttribute('data-empuid'); e.dataTransfer.effectAllowed='move'; try{ e.dataTransfer.setData('text/plain', dragUid); }catch(_){} } });
+  tree.addEventListener('dragover', e=>{ const tt=e.target.closest('[data-teamname]'); if(tt && dragUid){ e.preventDefault(); tt.classList.add('org-drop'); } });
+  tree.addEventListener('dragleave', e=>{ const tt=e.target.closest('[data-teamname]'); if(tt && !tt.contains(e.relatedTarget)) tt.classList.remove('org-drop'); });
+  tree.addEventListener('drop', e=>{ const tt=e.target.closest('[data-teamname]'); if(tt && dragUid){ e.preventDefault(); tt.classList.remove('org-drop'); moveEmpToTeam(dragUid, tt.getAttribute('data-teamname')); dragUid=null; } });
+  tree.addEventListener('dragend', ()=>{ dragUid=null; tree.querySelectorAll('.org-drop').forEach(x=>x.classList.remove('org-drop')); });
+})();
 
 tryAutoLogin();
 </script>
