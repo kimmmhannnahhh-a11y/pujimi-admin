@@ -41,6 +41,33 @@
   .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 18px; border-radius: 20px; font-size: 13px; opacity: 0; transition: .25s; z-index: 999; }
   .toast.show { opacity: 1; }
   .status { font-size: 12.5px; color: #888; margin-top: 8px; }
+  /* 조직도 */
+  #org-btn { position: fixed; top: 13px; left: 13px; z-index: 30; background:#fff; color:#6c63ff; border:none; padding:8px 14px; border-radius:10px; font-size:13px; font-weight:800; box-shadow:0 2px 10px rgba(108,99,255,.25); cursor:pointer; display:flex; align-items:center; gap:6px; }
+  #org-btn:hover { background:#f3f0ff; }
+  .org-overlay { position:fixed; inset:0; background:rgba(50,40,100,.4); z-index:200; display:none; align-items:flex-start; justify-content:center; padding:36px 14px; }
+  .org-box { background:#fff; border-radius:16px; width:100%; max-width:440px; max-height:86vh; display:flex; flex-direction:column; box-shadow:0 16px 50px rgba(0,0,0,.28); overflow:hidden; }
+  .org-head { display:flex; align-items:center; justify-content:space-between; padding:15px 18px; border-bottom:1px solid #eee; }
+  .org-head b { font-size:16px; color:#333; }
+  .org-x { background:none; color:#aaa; border:none; font-size:22px; cursor:pointer; padding:0; width:28px; }
+  .org-search-wrap { padding:11px 16px; border-bottom:1px solid #f1f1f1; }
+  .org-tree { padding:8px 12px 16px; overflow-y:auto; }
+  .org-row { display:flex; align-items:center; gap:7px; padding:7px 6px; border-radius:8px; cursor:pointer; }
+  .org-row:hover { background:#f6f4ff; }
+  .org-row .chev { color:#c4bdee; font-size:11px; width:12px; flex:0 0 12px; }
+  .org-name { font-weight:700; font-size:13.5px; color:#333; flex:1; }
+  .org-group > .org-row > .org-name { color:#6c63ff; }
+  .org-cnt { background:#f0edff; color:#6c63ff; font-size:11px; font-weight:800; padding:1px 9px; border-radius:10px; }
+  .org-children { padding-left:14px; border-left:1px dashed #ece9ff; margin-left:11px; }
+  .org-team-del { border:none; background:none; color:#d6d0f0; cursor:pointer; font-size:15px; padding:0 3px; line-height:1; }
+  .org-team-del:hover { color:#e74c3c; }
+  .org-emp { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:7px 8px; border-radius:8px; }
+  .org-emp.clickable { cursor:pointer; }
+  .org-emp.clickable:hover { background:#fbf3f3; }
+  .org-emp-main { font-size:13px; min-width:0; }
+  .org-rank { font-size:10px; padding:1px 6px; border-radius:6px; background:#eee; color:#777; margin-right:5px; }
+  .org-sub { color:#aaa; font-size:11px; }
+  .org-blocked { color:#e74c3c; font-size:10px; margin-left:4px; }
+  .org-empty,.org-empty2 { color:#bbb; font-size:12px; padding:9px; }
 </style>
 </head>
 <body>
@@ -61,6 +88,15 @@
 </div>
 
 <div id="app-screen" style="display:none;">
+<button id="org-btn" onclick="openOrg()"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="5" rx="1"/><rect x="3" y="17" width="6" height="5" rx="1"/><rect x="15" y="17" width="6" height="5" rx="1"/><path d="M12 7v5M6 17v-2h12v2M12 12v3"/></svg>조직도</button>
+<!-- 조직도 모달 -->
+<div class="org-overlay" id="org-modal" onclick="if(event.target===this)closeOrg()">
+  <div class="org-box">
+    <div class="org-head"><b>조직도</b><button class="org-x" onclick="closeOrg()">×</button></div>
+    <div class="org-search-wrap"><input id="org-search" placeholder="이름, 아이디, 팀 검색" oninput="renderOrg()"></div>
+    <div class="org-tree" id="org-tree"></div>
+  </div>
+</div>
 <header>
   <h1>🐾 푸짐이 관리자</h1>
   <p>여기서 수정하면 푸짐이 챗봇에 바로 반영돼요</p>
@@ -175,15 +211,14 @@
   <div class="panel" id="p-emp">
     <div class="card" id="emp-team-card" style="display:none;">
       <h2>👥 팀 관리</h2>
-      <div class="desc">소속(사업자·사업부)과 팀 이름을 넣어 팀을 만들어요. 만든 팀은 직원 추가 시 드롭다운에서 그룹별로 선택돼요.</div>
-      <div id="emp-teams" style="margin-bottom:12px;"></div>
+      <div class="desc">소속(사업자·사업부)과 팀 이름을 넣어 팀을 만들어요. 추가된 팀·직원은 좌측 상단 <b>조직도</b>에서 관리해요.</div>
       <label>소속 <span style="font-weight:400;color:#999;">(사업자 · 사업부)</span></label>
       <input id="emp-newgroup" list="group-list" placeholder="예: 웨이브넷 · 유통사업부">
       <datalist id="group-list"></datalist>
       <label>팀 이름</label>
       <div style="display:flex;gap:6px;">
         <input id="emp-newteam" placeholder="예: 유통1팀">
-        <button class="gray" style="white-space:nowrap;" onclick="addTeam()">팀 추가</button>
+        <button style="white-space:nowrap;" onclick="addTeam()">팀 추가</button>
       </div>
     </div>
     <div class="card">
@@ -199,13 +234,9 @@
       <div style="margin-top:12px;"><button class="green" onclick="addEmployee()">+ 직원 추가</button></div>
     </div>
     <div class="card">
-      <h2>직원 목록 <span id="emp-cnt" style="font-size:12px;color:#888;"></span></h2>
-      <div id="emp-list"><div style="color:#aaa;font-size:13px;">불러오는 중...</div></div>
-    </div>
-    <div class="card">
       <h2>🔑 내 비밀번호 변경</h2>
       <input id="emp-mypw" type="password" placeholder="새 비밀번호 (6자 이상)">
-      <div style="margin-top:10px;"><button class="gray" onclick="changeMyPw()">변경</button></div>
+      <div style="margin-top:10px;"><button onclick="changeMyPw()">변경</button></div>
     </div>
   </div>
 </div>
@@ -341,7 +372,7 @@ function enterApp(){
   document.getElementById('login-screen').style.display='none';
   document.getElementById('app-screen').style.display='block';
   const sup=AUTH.me.role==='superadmin';
-  document.getElementById('me-info').textContent=AUTH.me.name+' ('+(sup?'최고관리자':'팀장'+(AUTH.me.team?' · '+AUTH.me.team:''))+')';
+  document.getElementById('me-info').textContent=AUTH.me.name+' ('+(sup?'최고관리자':'관리자'+(AUTH.me.team?' · '+AUTH.me.team:''))+')';
   document.getElementById('emp-team-card').style.display=sup?'block':'none';
   document.getElementById('emp-team-label').textContent=sup?'':('— '+(AUTH.me.team||'팀 미지정'));
   setInterval(refreshNow, 50*60*1000);
@@ -357,7 +388,7 @@ async function initData(){
 }
 
 // ===== 직원 관리 =====
-function roleLabel(r){ return r==='superadmin'?'최고관리자':r==='leader'?'팀장':'직원'; }
+function roleLabel(r){ return r==='superadmin'?'최고관리자':r==='leader'?'관리자':'직원'; }
 async function loadEmployees(){
   try{
     const er=await fetch(FS+'/employees?pageSize=300',{headers:{Authorization:'Bearer '+AUTH.idToken}});
@@ -373,44 +404,21 @@ async function loadEmployees(){
 }
 function groupTeams(){ const g={}; TEAMS.forEach(t=>{ const k=t.group||'기타'; (g[k]=g[k]||[]).push(t); }); return g; }
 function renderTeams(){
-  const el=document.getElementById('emp-teams'); if(!el) return;
-  if(!TEAMS.length){ el.innerHTML='<span style="color:#aaa;font-size:12px;">아직 팀이 없어요</span>'; }
-  else {
-    const g=groupTeams();
-    el.innerHTML=Object.keys(g).map(grp=>
-      '<div style="margin-bottom:8px;"><div style="font-size:11px;font-weight:800;color:#888;margin-bottom:4px;">'+esc(grp)+'</div>'
-      +'<div style="display:flex;flex-wrap:wrap;gap:5px;">'+g[grp].map(t=>'<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 11px;background:#f3f0ff;color:#6c63ff;border-radius:12px;font-size:12px;font-weight:700;">'+esc(t.name)+'<button onclick="delTeam(\''+t.id+'\',\''+esc(t.name)+'\')" title="팀 삭제" style="border:none;background:rgba(108,99,255,.18);color:#6c63ff;width:16px;height:16px;border-radius:50%;cursor:pointer;font-size:11px;line-height:1;padding:0;">×</button></span>').join('')+'</div></div>'
-    ).join('');
-  }
   const dl=document.getElementById('group-list');
   if(dl){ const gs=[...new Set(TEAMS.map(t=>t.group).filter(Boolean))]; dl.innerHTML=gs.map(x=>'<option value="'+esc(x)+'">').join(''); }
+  if(document.getElementById('org-modal') && document.getElementById('org-modal').style.display!=='none') renderOrg();
 }
 function renderEmpForm(){
   const ex=document.getElementById('emp-extra'); if(!ex) return;
   if(AUTH.me.role==='superadmin'){
     const g=groupTeams();
-    const opts=Object.keys(g).map(grp=>'<optgroup label="'+esc(grp)+'">'+g[grp].map(t=>'<option value="'+esc(t.name)+'">'+esc(t.name)+'</option>').join('')+'</optgroup>').join('');
-    ex.innerHTML='<label>팀</label><select id="emp-team" onchange="onTeamPick(this)" style="width:100%;padding:9px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;"><option value="">팀 선택</option>'+opts+'<option value="__new__">➕ 새 팀 만들기…</option></select>'
-      +'<label>역할</label><select id="emp-role" style="width:100%;padding:9px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;"><option value="member">직원</option><option value="leader">팀장</option></select>';
+    const opts=Object.keys(g).map(grp=>'<optgroup label="'+esc(grp)+'" style="color:#6c63ff;font-weight:700;">'+g[grp].map(t=>'<option value="'+esc(t.name)+'" style="color:#333;">'+esc(t.name)+'</option>').join('')+'</optgroup>').join('');
+    ex.innerHTML='<label>팀</label><select id="emp-team" style="width:100%;padding:9px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;"><option value="">팀 선택</option>'+opts+'</select>'
+      +'<label>역할</label><select id="emp-role" style="width:100%;padding:9px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;"><option value="member">직원</option><option value="leader">관리자</option></select>';
   } else { ex.innerHTML=''; }
 }
 function renderEmployees(){
-  const el=document.getElementById('emp-list');
-  document.getElementById('emp-cnt').textContent='('+EMPLOYEES.length+'명)';
-  if(!EMPLOYEES.length){ el.innerHTML='<div style="color:#aaa;font-size:13px;">아직 직원이 없어요</div>'; return; }
-  const g={}; EMPLOYEES.forEach(e=>{ const k=e.team||'(팀 없음)'; (g[k]=g[k]||[]).push(e); });
-  el.innerHTML=Object.keys(g).sort().map(team=>
-    '<div style="font-size:12px;font-weight:800;color:#888;margin:10px 0 4px;">'+esc(team)+'</div>'
-    + g[team].map(e=>{
-        const badge=e.role==='leader'?'background:#ede7ff;color:#6c4cff':e.role==='superadmin'?'background:#fff3d6;color:#c08400':'background:#eee;color:#777';
-        const ctrl=e.role==='superadmin'?'' : '<div style="display:flex;gap:4px;"><button class="gray" style="padding:5px 9px;font-size:11px;" onclick="toggleEmp(\''+e.uid+'\','+(e.active?'false':'true')+')">'+(e.active?'차단':'해제')+'</button><button class="red" onclick="delEmp(\''+e.uid+'\',\''+esc(e.name)+'\')">삭제</button></div>';
-        return '<div class="mrow" style="justify-content:space-between;">'
-          +'<div style="min-width:0;"><b>'+esc(e.name)+'</b> <span style="color:#aaa;font-size:11px;">'+esc(e.loginId)+'</span>'
-          +' <span style="font-size:10px;padding:1px 6px;border-radius:6px;'+badge+';">'+roleLabel(e.role)+'</span>'
-          +(e.active?'':' <span style="font-size:10px;padding:1px 6px;border-radius:6px;background:#fde0e0;color:#e74c3c;">차단됨</span>')+'</div>'
-          +ctrl+'</div>';
-      }).join('')
-  ).join('');
+  const el=document.getElementById('emp-list'); if(!el) return; // 직원 목록은 조직도로 이동됨
 }
 async function createTeam(name, group){
   const id='t'+Date.now();
@@ -488,6 +496,66 @@ async function changeMyPw(){
     toast('✅ 비밀번호 변경됨');
   }catch(e){ toast(/INVALID_LOGIN|INVALID_PASSWORD|EMAIL_NOT_FOUND/.test(e.message)?'현재 비밀번호가 틀렸어요':('실패: '+e.message)); }
 }
+
+// ===== 조직도 =====
+function openOrg(){
+  const m=document.getElementById('org-modal'); m.style.display='flex';
+  const s=document.getElementById('org-search'); if(s) s.value='';
+  if(AUTH.idToken && !EMPLOYEES.length) loadEmployees();
+  renderOrg();
+}
+function closeOrg(){ document.getElementById('org-modal').style.display='none'; }
+function orgData(){
+  const teamByName={}; TEAMS.forEach(t=>teamByName[t.name]=t);
+  const groups={};
+  const ensureG=g=>(groups[g]=groups[g]||{teams:{},count:0});
+  const ensureT=(g,tn,id)=>{ const G=ensureG(g); G.teams[tn]=G.teams[tn]||{id:id||'',emps:[]}; return G.teams[tn]; };
+  TEAMS.forEach(t=>ensureT(t.group||'(소속 없음)', t.name, t.id));
+  EMPLOYEES.forEach(e=>{
+    const t=teamByName[e.team]; const g=(t&&t.group)||'(소속 없음)'; const tn=e.team||'(팀 없음)';
+    ensureT(g,tn,t?t.id:'').emps.push(e); ensureG(g).count++;
+  });
+  return groups;
+}
+function orgEmpRow(e, showTeam){
+  const canFire = AUTH.me && AUTH.me.role==='superadmin' && e.role!=='superadmin';
+  const sub='<span class="org-sub">'+esc(e.loginId||'')+(showTeam&&e.team?(' · '+esc(e.team)):'')+'</span>';
+  const blocked=e.active?'':'<span class="org-blocked">차단됨</span>';
+  const actions=canFire?'<div class="org-emp-actions" style="display:none;"><button class="red" data-fire data-uid="'+e.uid+'" data-name="'+esc(e.name)+'">퇴사</button></div>':'';
+  return '<div class="org-emp'+(canFire?' clickable':'')+'"><div class="org-emp-main"><span class="org-rank">'+roleLabel(e.role)+'</span><b>'+esc(e.name)+'</b> '+sub+' '+blocked+'</div>'+actions+'</div>';
+}
+function renderOrg(){
+  const wrap=document.getElementById('org-tree'); if(!wrap) return;
+  const q=((document.getElementById('org-search')||{}).value||'').trim().toLowerCase();
+  if(q){
+    const ms=EMPLOYEES.filter(e=>((e.name||'')+' '+(e.loginId||'')+' '+(e.team||'')).toLowerCase().includes(q));
+    wrap.innerHTML = ms.length? ms.map(e=>orgEmpRow(e,true)).join('') : '<div class="org-empty">검색 결과가 없어요</div>';
+    return;
+  }
+  const groups=orgData(); const gkeys=Object.keys(groups).sort();
+  if(!gkeys.length){ wrap.innerHTML='<div class="org-empty">아직 팀·직원이 없어요</div>'; return; }
+  wrap.innerHTML='<div class="org-row" style="cursor:default;"><span class="chev"></span><span class="org-name">전체</span><span class="org-cnt">'+EMPLOYEES.length+'</span></div>'
+   + gkeys.map(g=>{
+      const G=groups[g]; const tkeys=Object.keys(G.teams).sort();
+      const teams=tkeys.map(tn=>{
+        const T=G.teams[tn];
+        const del=T.id?'<button class="org-team-del" data-delteam data-id="'+T.id+'" data-name="'+esc(tn)+'" title="팀 삭제">×</button>':'';
+        const emps=T.emps.length? T.emps.map(e=>orgEmpRow(e,false)).join('') : '<div class="org-empty2">직원 없음</div>';
+        return '<div class="org-team"><div class="org-row org-toggle"><span class="chev">▸</span><span class="org-name">'+esc(tn)+'</span><span class="org-cnt">'+T.emps.length+'</span>'+del+'</div><div class="org-children" style="display:none;">'+emps+'</div></div>';
+      }).join('');
+      return '<div class="org-group"><div class="org-row org-toggle"><span class="chev">▸</span><span class="org-name">'+esc(g)+'</span><span class="org-cnt">'+G.count+'</span></div><div class="org-children" style="display:none;">'+teams+'</div></div>';
+   }).join('');
+}
+document.getElementById('org-tree').addEventListener('click', function(e){
+  const fire=e.target.closest('[data-fire]');
+  if(fire){ e.stopPropagation(); delEmp(fire.getAttribute('data-uid'), fire.getAttribute('data-name')); return; }
+  const delt=e.target.closest('[data-delteam]');
+  if(delt){ e.stopPropagation(); delTeam(delt.getAttribute('data-id'), delt.getAttribute('data-name')); return; }
+  const emp=e.target.closest('.org-emp');
+  if(emp){ const a=emp.querySelector('.org-emp-actions'); if(a) a.style.display=a.style.display==='none'?'block':'none'; return; }
+  const tog=e.target.closest('.org-toggle');
+  if(tog){ const ch=tog.nextElementSibling; if(ch&&ch.classList.contains('org-children')){ const open=ch.style.display!=='none'; ch.style.display=open?'none':'block'; const c=tog.querySelector('.chev'); if(c) c.textContent=open?'▸':'▾'; } }
+});
 
 tryAutoLogin();
 </script>
