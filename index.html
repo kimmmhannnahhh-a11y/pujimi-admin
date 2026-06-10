@@ -175,10 +175,14 @@
   <div class="panel" id="p-emp">
     <div class="card" id="emp-team-card" style="display:none;">
       <h2>👥 팀 관리</h2>
-      <div class="desc">팀을 먼저 만들고, 직원을 추가할 때 팀을 지정하세요.</div>
-      <div id="emp-teams" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
+      <div class="desc">소속(사업자·사업부)과 팀 이름을 넣어 팀을 만들어요. 만든 팀은 직원 추가 시 드롭다운에서 그룹별로 선택돼요.</div>
+      <div id="emp-teams" style="margin-bottom:12px;"></div>
+      <label>소속 <span style="font-weight:400;color:#999;">(사업자 · 사업부)</span></label>
+      <input id="emp-newgroup" list="group-list" placeholder="예: 웨이브넷 · 유통사업부">
+      <datalist id="group-list"></datalist>
+      <label>팀 이름</label>
       <div style="display:flex;gap:6px;">
-        <input id="emp-newteam" placeholder="새 팀 이름 (예: 1팀)">
+        <input id="emp-newteam" placeholder="예: 유통1팀">
         <button class="gray" style="white-space:nowrap;" onclick="addTeam()">팀 추가</button>
       </div>
     </div>
@@ -361,20 +365,32 @@ async function loadEmployees(){
     let list=(ej.documents||[]).map(d=>{ const e=pickEmp(d); e.uid=d.name.split('/').pop(); return e; });
     const tr=await fetch(FS+'/teams?pageSize=100',{headers:{Authorization:'Bearer '+AUTH.idToken}});
     const tj=await tr.json();
-    TEAMS=(tj.documents||[]).map(d=>({ id:d.name.split('/').pop(), name:(d.fields&&d.fields.name&&d.fields.name.stringValue)||'' }));
+    TEAMS=(tj.documents||[]).map(d=>({ id:d.name.split('/').pop(), name:(d.fields&&d.fields.name&&d.fields.name.stringValue)||'', group:(d.fields&&d.fields.group&&d.fields.group.stringValue)||'' }));
     if(AUTH.me.role!=='superadmin'){ list=list.filter(e=>e.team===AUTH.me.team); }
     EMPLOYEES=list;
     renderTeams(); renderEmpForm(); renderEmployees();
   }catch(e){ document.getElementById('emp-list').innerHTML='<div style="color:#e74c3c;font-size:13px;">목록을 불러오지 못했어요</div>'; }
 }
+function groupTeams(){ const g={}; TEAMS.forEach(t=>{ const k=t.group||'기타'; (g[k]=g[k]||[]).push(t); }); return g; }
 function renderTeams(){
   const el=document.getElementById('emp-teams'); if(!el) return;
-  el.innerHTML=TEAMS.length? TEAMS.map(t=>'<span style="padding:4px 11px;background:#f3f0ff;color:#6c63ff;border-radius:12px;font-size:12px;font-weight:700;">'+esc(t.name)+'</span>').join('') : '<span style="color:#aaa;font-size:12px;">아직 팀이 없어요</span>';
+  if(!TEAMS.length){ el.innerHTML='<span style="color:#aaa;font-size:12px;">아직 팀이 없어요</span>'; }
+  else {
+    const g=groupTeams();
+    el.innerHTML=Object.keys(g).map(grp=>
+      '<div style="margin-bottom:8px;"><div style="font-size:11px;font-weight:800;color:#888;margin-bottom:4px;">'+esc(grp)+'</div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:5px;">'+g[grp].map(t=>'<span style="padding:4px 11px;background:#f3f0ff;color:#6c63ff;border-radius:12px;font-size:12px;font-weight:700;">'+esc(t.name)+'</span>').join('')+'</div></div>'
+    ).join('');
+  }
+  const dl=document.getElementById('group-list');
+  if(dl){ const gs=[...new Set(TEAMS.map(t=>t.group).filter(Boolean))]; dl.innerHTML=gs.map(x=>'<option value="'+esc(x)+'">').join(''); }
 }
 function renderEmpForm(){
   const ex=document.getElementById('emp-extra'); if(!ex) return;
   if(AUTH.me.role==='superadmin'){
-    ex.innerHTML='<label>팀</label><select id="emp-team" onchange="onTeamPick(this)" style="width:100%;padding:9px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;"><option value="">팀 선택</option>'+TEAMS.map(t=>'<option value="'+esc(t.name)+'">'+esc(t.name)+'</option>').join('')+'<option value="__new__">➕ 새 팀 만들기…</option></select>'
+    const g=groupTeams();
+    const opts=Object.keys(g).map(grp=>'<optgroup label="'+esc(grp)+'">'+g[grp].map(t=>'<option value="'+esc(t.name)+'">'+esc(t.name)+'</option>').join('')+'</optgroup>').join('');
+    ex.innerHTML='<label>팀</label><select id="emp-team" onchange="onTeamPick(this)" style="width:100%;padding:9px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;"><option value="">팀 선택</option>'+opts+'<option value="__new__">➕ 새 팀 만들기…</option></select>'
       +'<label>역할</label><select id="emp-role" style="width:100%;padding:9px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;"><option value="member">직원</option><option value="leader">팀장</option></select>';
   } else { ex.innerHTML=''; }
 }
@@ -396,23 +412,26 @@ function renderEmployees(){
       }).join('')
   ).join('');
 }
-async function createTeam(name){
+async function createTeam(name, group){
   const id='t'+Date.now();
-  const body=JSON.stringify({fields:{name:{stringValue:name},createdAt:{integerValue:String(Date.now())}}});
+  const body=JSON.stringify({fields:{name:{stringValue:name},group:{stringValue:group||''},createdAt:{integerValue:String(Date.now())}}});
   const r=await fetch(FS+'/teams/'+id+'?key='+KEY,{method:'PATCH',headers:authHeaders(),body});
   if(!r.ok){ toast('실패 (권한 확인)'); return false; }
   toast('✅ 팀 추가됨'); return true;
 }
 async function addTeam(){
-  const name=(document.getElementById('emp-newteam').value||'').trim(); if(!name) return;
-  if(await createTeam(name)){ document.getElementById('emp-newteam').value=''; loadEmployees(); }
+  const name=(document.getElementById('emp-newteam').value||'').trim();
+  const group=(document.getElementById('emp-newgroup').value||'').trim();
+  if(!name) return;
+  if(await createTeam(name, group)){ document.getElementById('emp-newteam').value=''; loadEmployees(); }
 }
 // 직원 추가 폼의 팀 드롭다운에서 "➕ 새 팀 만들기" 선택 시
 async function onTeamPick(sel){
   if(sel.value!=='__new__') return;
-  const name=(prompt('새 팀 이름을 입력하세요 (예: 1팀)')||'').trim();
+  const group=(prompt('소속을 입력하세요 (예: 웨이브넷 · 유통사업부)')||'').trim();
+  const name=(prompt('팀 이름을 입력하세요 (예: 유통1팀)')||'').trim();
   if(!name){ sel.value=''; return; }
-  if(await createTeam(name)){ await loadEmployees(); const s=document.getElementById('emp-team'); if(s) s.value=name; }
+  if(await createTeam(name, group)){ await loadEmployees(); const s=document.getElementById('emp-team'); if(s) s.value=name; }
   else sel.value='';
 }
 async function addEmployee(){
@@ -449,8 +468,18 @@ async function delEmp(uid, name){
 async function changeMyPw(){
   const pw=document.getElementById('emp-mypw').value||'';
   if(pw.length<6){ toast('비밀번호는 6자 이상'); return; }
-  try{ await idp('update',{idToken:AUTH.idToken,password:pw,returnSecureToken:true}); document.getElementById('emp-mypw').value=''; toast('✅ 비밀번호 변경됨'); }
-  catch(e){ if(/CREDENTIAL_TOO_OLD|TOKEN_EXPIRED/.test(e.message)){ await refreshNow(); toast('다시 한 번 눌러주세요'); } else toast('실패: '+e.message); }
+  const cur=prompt('보안을 위해 현재 비밀번호를 입력하세요');
+  if(!cur) return;
+  try{
+    const lid=AUTH.me.loginId||'';
+    const email=lid.includes('@')?lid:(lid+'@'+LOGIN_DOMAIN);
+    // 최근 로그인 토큰 확보(재인증) 후 비밀번호 변경
+    const re=await idp('signInWithPassword',{email,password:cur,returnSecureToken:true});
+    AUTH.idToken=re.idToken; AUTH.uid=re.localId; localStorage.setItem('pj_rt',re.refreshToken);
+    await idp('update',{idToken:AUTH.idToken,password:pw,returnSecureToken:true});
+    document.getElementById('emp-mypw').value='';
+    toast('✅ 비밀번호 변경됨');
+  }catch(e){ toast(/INVALID_LOGIN|INVALID_PASSWORD|EMAIL_NOT_FOUND/.test(e.message)?'현재 비밀번호가 틀렸어요':('실패: '+e.message)); }
 }
 
 tryAutoLogin();
