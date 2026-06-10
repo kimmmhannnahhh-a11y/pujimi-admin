@@ -44,9 +44,30 @@
 </style>
 </head>
 <body>
+<!-- 로그인 화면 -->
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:#f4f2ff;z-index:1000;align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:16px;padding:30px 26px;width:90%;max-width:330px;box-shadow:0 6px 30px rgba(108,99,255,.18);">
+    <div style="text-align:center;font-size:34px;">🐾</div>
+    <h2 style="text-align:center;margin:6px 0 2px;color:#6c63ff;">푸짐이 관리자</h2>
+    <p style="text-align:center;font-size:12px;color:#999;margin:0 0 18px;">직원 로그인</p>
+    <label>아이디</label>
+    <input id="lg-id" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="아이디">
+    <label>비밀번호</label>
+    <input id="lg-pw" type="password" placeholder="비밀번호" onkeydown="if(event.key==='Enter')doLogin()">
+    <div id="lg-err" style="color:#e74c3c;font-size:12px;margin-top:8px;display:none;"></div>
+    <button class="green" style="width:100%;margin-top:14px;padding:12px;font-size:15px;" onclick="doLogin()">로그인</button>
+    <p style="text-align:center;font-size:11px;color:#bbb;margin-top:12px;">계정은 팀장/관리자에게 요청하세요</p>
+  </div>
+</div>
+
+<div id="app-screen" style="display:none;">
 <header>
   <h1>🐾 푸짐이 관리자</h1>
   <p>여기서 수정하면 푸짐이 챗봇에 바로 반영돼요</p>
+  <div style="margin-top:8px;font-size:11px;opacity:.92;">
+    <span id="me-info"></span>
+    <a href="#" onclick="logout();return false;" style="color:#fff;text-decoration:underline;margin-left:8px;">로그아웃</a>
+  </div>
 </header>
 <div class="wrap">
   <div class="tabs">
@@ -55,6 +76,7 @@
     <div class="tab" data-t="fee" onclick="tab('fee')">🔧 설치비</div>
     <div class="tab" data-t="menu" onclick="tab('menu')">📋 메뉴</div>
     <div class="tab" data-t="gloss" onclick="tab('gloss')">📖 용어</div>
+    <div class="tab" data-t="emp" onclick="tab('emp')">👥 직원</div>
   </div>
 
   <!-- 공시 업데이트 -->
@@ -148,6 +170,41 @@
       <div id="gloss-list"></div>
     </div>
   </div>
+
+  <!-- 직원 관리 -->
+  <div class="panel" id="p-emp">
+    <div class="card" id="emp-team-card" style="display:none;">
+      <h2>👥 팀 관리</h2>
+      <div class="desc">팀을 먼저 만들고, 직원을 추가할 때 팀을 지정하세요.</div>
+      <div id="emp-teams" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;"></div>
+      <div style="display:flex;gap:6px;">
+        <input id="emp-newteam" placeholder="새 팀 이름 (예: 1팀)">
+        <button class="gray" style="white-space:nowrap;" onclick="addTeam()">팀 추가</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>➕ 직원 추가 <span id="emp-team-label" style="font-size:12px;color:#888;"></span></h2>
+      <div class="desc">직원은 여기서 만든 <b>아이디 + 비밀번호</b>로 푸짐이(관리자·챗봇)에 로그인해요.</div>
+      <label>아이디 <span style="font-weight:400;color:#999;">(영문/숫자)</span></label>
+      <input id="emp-id" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="예: hong123">
+      <label>이름</label>
+      <input id="emp-name" placeholder="이름">
+      <label>비밀번호 <span style="font-weight:400;color:#999;">(6자 이상)</span></label>
+      <input id="emp-pw" placeholder="비밀번호">
+      <div id="emp-extra"></div>
+      <div style="margin-top:12px;"><button class="green" onclick="addEmployee()">+ 직원 추가</button></div>
+    </div>
+    <div class="card">
+      <h2>직원 목록 <span id="emp-cnt" style="font-size:12px;color:#888;"></span></h2>
+      <div id="emp-list"><div style="color:#aaa;font-size:13px;">불러오는 중...</div></div>
+    </div>
+    <div class="card">
+      <h2>🔑 내 비밀번호 변경</h2>
+      <input id="emp-mypw" type="password" placeholder="새 비밀번호 (6자 이상)">
+      <div style="margin-top:10px;"><button class="gray" onclick="changeMyPw()">변경</button></div>
+    </div>
+  </div>
+</div>
 </div>
 <div class="toast" id="toast"></div>
 
@@ -156,13 +213,24 @@ const KEY = "AIzaSyAujRAOdwvPp1JZpZiyRq5S1p5TtjrujO0";
 const FS = "https://firestore.googleapis.com/v1/projects/pujimi-chatbot/databases/(default)/documents";
 const BASE_CARR = ["KT", "SK", "LG"], TYPES = ["동시", "단독"], SERVICES = ["인터넷", "TV", "집전화", "070"];
 let FAQ = [], FEES = {}, MENUS = { quick: [], side: [] };
+let AUTH = { idToken:null, uid:null, me:null }, TEAMS = [], EMPLOYEES = [];
+const LOGIN_DOMAIN = "pujimi.local";
+const IDP = "https://identitytoolkit.googleapis.com/v1/accounts:";
+const STK = "https://securetoken.googleapis.com/v1/token?key=" + KEY;
 
 function toast(m){ const t=document.getElementById('toast'); t.textContent=m; t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),2200); }
 function tab(n){ document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('active',e.dataset.t===n)); document.querySelectorAll('.panel').forEach(e=>e.classList.remove('active')); document.getElementById('p-'+n).classList.add('active'); }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
 async function loadJson(p, def){ try{ const r=await fetch(FS+'/'+p+'?key='+KEY); if(!r.ok) return def; const d=await r.json(); const s=d.fields&&d.fields.json&&d.fields.json.stringValue; return s?JSON.parse(s):def; }catch(e){ return def; } }
-async function saveJson(p, obj){ const body={fields:{json:{stringValue:JSON.stringify(obj)}, updated_at:{stringValue:new Date().toISOString()}}}; const r=await fetch(FS+'/'+p+'?key='+KEY+'&updateMask.fieldPaths=json&updateMask.fieldPaths=updated_at',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); return r.ok; }
+async function saveJson(p, obj){
+  const url=FS+'/'+p+'?key='+KEY+'&updateMask.fieldPaths=json&updateMask.fieldPaths=updated_at';
+  const body=JSON.stringify({fields:{json:{stringValue:JSON.stringify(obj)}, updated_at:{stringValue:new Date().toISOString()}}});
+  const send=()=>{ const h={'Content-Type':'application/json'}; if(AUTH.idToken)h.Authorization='Bearer '+AUTH.idToken; return fetch(url,{method:'PATCH',headers:h,body}); };
+  let r=await send();
+  if(r.status===401||r.status===403){ await refreshNow(); r=await send(); }
+  return r.ok;
+}
 
 // FAQ
 function renderFaq(){ document.getElementById('faq-cnt').textContent='('+FAQ.length+'개)'; const el=document.getElementById('faq-list'); if(!FAQ.length){ el.innerHTML='<div style="color:#aaa;font-size:13px;">등록된 FAQ가 없어요.</div>'; return; } el.innerHTML=FAQ.map((f,i)=>{ const a=Array.isArray(f.answer)?f.answer:[f.answer]; return '<div class="faq-item"><div class="faq-q">키워드: '+esc((f.triggers||[]).join(', '))+'</div><div class="faq-a">'+a.map(esc).join('<br>—<br>')+'</div><div style="margin-top:7px;"><button class="red" onclick="delFaq('+i+')">삭제</button></div></div>'; }).join(''); }
@@ -229,13 +297,151 @@ function renderGloss(){
 async function addGloss(){ const t=document.getElementById('g-term').value.trim(), d=document.getElementById('g-def').value.trim(); if(!t||!d){toast('용어와 뜻을 입력');return;} GLOSS[t]=d; if(await saveJson('config/glossary',GLOSS)){ document.getElementById('g-term').value='';document.getElementById('g-def').value=''; renderGloss(); toast('✅ 용어 추가됨'); } }
 async function delGloss(k){ if(!confirm('삭제할까요?'))return; delete GLOSS[k]; if(await saveJson('config/glossary',GLOSS)){ renderGloss(); toast('삭제됨'); } }
 
-(async()=>{
+// ===== 로그인 / 인증 =====
+async function idp(method, body){ const r=await fetch(IDP+method+'?key='+KEY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}); const j=await r.json(); if(!r.ok) throw new Error((j.error&&j.error.message)||'오류'); return j; }
+async function refreshNow(){ const rt=localStorage.getItem('pj_rt'); if(!rt) return; try{ const r=await fetch(STK,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=refresh_token&refresh_token='+rt}); const j=await r.json(); if(r.ok){ AUTH.idToken=j.id_token; AUTH.uid=j.user_id; localStorage.setItem('pj_rt',j.refresh_token); } }catch(e){} }
+function authHeaders(){ const h={'Content-Type':'application/json'}; if(AUTH.idToken)h.Authorization='Bearer '+AUTH.idToken; return h; }
+async function fbGet(path){ const r=await fetch(FS+'/'+path,{headers:AUTH.idToken?{Authorization:'Bearer '+AUTH.idToken}:{}}); if(r.status===404) return null; if(!r.ok) throw new Error('읽기 '+r.status); return r.json(); }
+function pickEmp(d){ if(!d||!d.fields) return null; const f=d.fields; return { loginId:(f.loginId&&f.loginId.stringValue)||'', name:(f.name&&f.name.stringValue)||'', team:(f.team&&f.team.stringValue)||'', role:(f.role&&f.role.stringValue)||'member', active:!(f.active&&f.active.booleanValue===false) }; }
+async function loadMe(){ const d=await fbGet('employees/'+AUTH.uid); const e=pickEmp(d); if(e) e.uid=AUTH.uid; return e; }
+
+function showLogin(msg){ document.getElementById('login-screen').style.display='flex'; document.getElementById('app-screen').style.display='none'; const e=document.getElementById('lg-err'); if(msg){ e.textContent=msg; e.style.display='block'; } else e.style.display='none'; }
+function gateOk(me){ return me && me.active!==false && (me.role==='superadmin'||me.role==='leader'); }
+
+async function doLogin(){
+  const id=(document.getElementById('lg-id').value||'').trim().toLowerCase();
+  const pw=document.getElementById('lg-pw').value||'';
+  if(!id||!pw){ showLogin('아이디와 비밀번호를 입력하세요'); return; }
+  try{
+    const email=id.includes('@')?id:(id+'@'+LOGIN_DOMAIN);
+    const res=await idp('signInWithPassword',{email,password:pw,returnSecureToken:true});
+    AUTH.idToken=res.idToken; AUTH.uid=res.localId; localStorage.setItem('pj_rt',res.refreshToken);
+    const me=await loadMe();
+    if(!me){ throw new Error('등록되지 않은 계정이에요'); }
+    if(me.active===false){ throw new Error('차단된 계정이에요'); }
+    if(!gateOk(me)){ throw new Error('관리자(팀장) 계정만 들어올 수 있어요'); }
+    AUTH.me=me; enterApp();
+  }catch(e){ localStorage.removeItem('pj_rt'); AUTH={idToken:null,uid:null,me:null}; showLogin((/INVALID_LOGIN|INVALID_PASSWORD|EMAIL_NOT_FOUND/.test(e.message))?'아이디 또는 비밀번호가 틀렸어요':e.message); }
+}
+async function tryAutoLogin(){
+  const rt=localStorage.getItem('pj_rt');
+  if(!rt){ showLogin(); return; }
+  await refreshNow();
+  if(!AUTH.idToken){ localStorage.removeItem('pj_rt'); showLogin(); return; }
+  try{ const me=await loadMe(); if(!gateOk(me)){ throw 0; } AUTH.me=me; enterApp(); }
+  catch(e){ localStorage.removeItem('pj_rt'); AUTH={idToken:null,uid:null,me:null}; showLogin(); }
+}
+function logout(){ localStorage.removeItem('pj_rt'); location.reload(); }
+
+function enterApp(){
+  document.getElementById('login-screen').style.display='none';
+  document.getElementById('app-screen').style.display='block';
+  const sup=AUTH.me.role==='superadmin';
+  document.getElementById('me-info').textContent=AUTH.me.name+' ('+(sup?'최고관리자':'팀장'+(AUTH.me.team?' · '+AUTH.me.team:''))+')';
+  document.getElementById('emp-team-card').style.display=sup?'block':'none';
+  document.getElementById('emp-team-label').textContent=sup?'':('— '+(AUTH.me.team||'팀 미지정'));
+  setInterval(refreshNow, 50*60*1000);
+  initData();
+}
+async function initData(){
   FAQ=await loadJson('config/faq',[]); renderFaq();
   FEES=await loadJson('config/install_fees',{}); renderFee();
   MENUS=await loadJson('config/menus',{quick:[],side:[]}); renderMenus();
   GLOSS=await loadJson('config/glossary',{}); renderGloss();
   loadGongsiStatus();
-})();
+  loadEmployees();
+}
+
+// ===== 직원 관리 =====
+function roleLabel(r){ return r==='superadmin'?'최고관리자':r==='leader'?'팀장':'직원'; }
+async function loadEmployees(){
+  try{
+    const er=await fetch(FS+'/employees?pageSize=300',{headers:{Authorization:'Bearer '+AUTH.idToken}});
+    const ej=await er.json();
+    let list=(ej.documents||[]).map(d=>{ const e=pickEmp(d); e.uid=d.name.split('/').pop(); return e; });
+    const tr=await fetch(FS+'/teams?pageSize=100',{headers:{Authorization:'Bearer '+AUTH.idToken}});
+    const tj=await tr.json();
+    TEAMS=(tj.documents||[]).map(d=>({ id:d.name.split('/').pop(), name:(d.fields&&d.fields.name&&d.fields.name.stringValue)||'' }));
+    if(AUTH.me.role!=='superadmin'){ list=list.filter(e=>e.team===AUTH.me.team); }
+    EMPLOYEES=list;
+    renderTeams(); renderEmpForm(); renderEmployees();
+  }catch(e){ document.getElementById('emp-list').innerHTML='<div style="color:#e74c3c;font-size:13px;">목록을 불러오지 못했어요</div>'; }
+}
+function renderTeams(){
+  const el=document.getElementById('emp-teams'); if(!el) return;
+  el.innerHTML=TEAMS.length? TEAMS.map(t=>'<span style="padding:4px 11px;background:#f3f0ff;color:#6c63ff;border-radius:12px;font-size:12px;font-weight:700;">'+esc(t.name)+'</span>').join('') : '<span style="color:#aaa;font-size:12px;">아직 팀이 없어요</span>';
+}
+function renderEmpForm(){
+  const ex=document.getElementById('emp-extra'); if(!ex) return;
+  if(AUTH.me.role==='superadmin'){
+    ex.innerHTML='<label>팀</label><select id="emp-team" style="width:100%;padding:9px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;"><option value="">팀 선택</option>'+TEAMS.map(t=>'<option value="'+esc(t.name)+'">'+esc(t.name)+'</option>').join('')+'</select>'
+      +'<label>역할</label><select id="emp-role" style="width:100%;padding:9px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;"><option value="member">직원</option><option value="leader">팀장</option></select>';
+  } else { ex.innerHTML=''; }
+}
+function renderEmployees(){
+  const el=document.getElementById('emp-list');
+  document.getElementById('emp-cnt').textContent='('+EMPLOYEES.length+'명)';
+  if(!EMPLOYEES.length){ el.innerHTML='<div style="color:#aaa;font-size:13px;">아직 직원이 없어요</div>'; return; }
+  const g={}; EMPLOYEES.forEach(e=>{ const k=e.team||'(팀 없음)'; (g[k]=g[k]||[]).push(e); });
+  el.innerHTML=Object.keys(g).sort().map(team=>
+    '<div style="font-size:12px;font-weight:800;color:#888;margin:10px 0 4px;">'+esc(team)+'</div>'
+    + g[team].map(e=>{
+        const badge=e.role==='leader'?'background:#ede7ff;color:#6c4cff':e.role==='superadmin'?'background:#fff3d6;color:#c08400':'background:#eee;color:#777';
+        const ctrl=e.role==='superadmin'?'' : '<div style="display:flex;gap:4px;"><button class="gray" style="padding:5px 9px;font-size:11px;" onclick="toggleEmp(\''+e.uid+'\','+(e.active?'false':'true')+')">'+(e.active?'차단':'해제')+'</button><button class="red" onclick="delEmp(\''+e.uid+'\',\''+esc(e.name)+'\')">삭제</button></div>';
+        return '<div class="mrow" style="justify-content:space-between;">'
+          +'<div style="min-width:0;"><b>'+esc(e.name)+'</b> <span style="color:#aaa;font-size:11px;">'+esc(e.loginId)+'</span>'
+          +' <span style="font-size:10px;padding:1px 6px;border-radius:6px;'+badge+';">'+roleLabel(e.role)+'</span>'
+          +(e.active?'':' <span style="font-size:10px;padding:1px 6px;border-radius:6px;background:#fde0e0;color:#e74c3c;">차단됨</span>')+'</div>'
+          +ctrl+'</div>';
+      }).join('')
+  ).join('');
+}
+async function addTeam(){
+  const name=(document.getElementById('emp-newteam').value||'').trim(); if(!name) return;
+  const id='t'+Date.now();
+  const body=JSON.stringify({fields:{name:{stringValue:name},createdAt:{integerValue:String(Date.now())}}});
+  const r=await fetch(FS+'/teams/'+id+'?key='+KEY,{method:'PATCH',headers:authHeaders(),body});
+  if(r.ok){ document.getElementById('emp-newteam').value=''; toast('✅ 팀 추가됨'); loadEmployees(); } else toast('실패 (권한 확인)');
+}
+async function addEmployee(){
+  const id=(document.getElementById('emp-id').value||'').trim().toLowerCase();
+  const name=(document.getElementById('emp-name').value||'').trim();
+  const pw=document.getElementById('emp-pw').value||'';
+  const sup=AUTH.me.role==='superadmin';
+  const team=sup?((document.getElementById('emp-team')||{}).value||''):AUTH.me.team;
+  const role=sup?((document.getElementById('emp-role')||{}).value||'member'):'member';
+  if(!/^[a-z0-9._-]{2,30}$/.test(id)){ toast('아이디는 영문/숫자 2자 이상'); return; }
+  if(pw.length<6){ toast('비밀번호는 6자 이상'); return; }
+  if(!name){ toast('이름을 입력하세요'); return; }
+  try{
+    const su=await idp('signUp',{email:id+'@'+LOGIN_DOMAIN,password:pw,returnSecureToken:true});
+    const newUid=su.localId;
+    const body=JSON.stringify({fields:{uid:{stringValue:newUid},loginId:{stringValue:id},email:{stringValue:id+'@'+LOGIN_DOMAIN},name:{stringValue:name},team:{stringValue:team},role:{stringValue:role},active:{booleanValue:true},createdAt:{integerValue:String(Date.now())},createdBy:{stringValue:AUTH.uid}}});
+    const r=await fetch(FS+'/employees/'+newUid+'?key='+KEY,{method:'PATCH',headers:authHeaders(),body});
+    if(!r.ok){ toast('프로필 저장 실패 (권한 확인)'); return; }
+    document.getElementById('emp-id').value=''; document.getElementById('emp-name').value=''; document.getElementById('emp-pw').value='';
+    toast('✅ 직원 추가됨'); loadEmployees();
+  }catch(e){ toast(/EMAIL_EXISTS/.test(e.message)?'이미 있는 아이디예요':('실패: '+e.message)); }
+}
+async function toggleEmp(uid, makeActive){
+  const body=JSON.stringify({fields:{active:{booleanValue:makeActive}}});
+  const r=await fetch(FS+'/employees/'+uid+'?key='+KEY+'&updateMask.fieldPaths=active',{method:'PATCH',headers:authHeaders(),body});
+  if(r.ok){ toast(makeActive?'차단 해제됨':'차단됨 (로그인 불가)'); loadEmployees(); } else toast('실패 (권한 확인)');
+}
+async function delEmp(uid, name){
+  if(!confirm("'"+name+"' 계정을 삭제(퇴사 처리)할까요?\n다시는 로그인할 수 없게 돼요.")) return;
+  // 직원 프로필 삭제 → 프로필 없으면 로그인해도 접근 전부 차단됨
+  const r=await fetch(FS+'/employees/'+uid+'?key='+KEY,{method:'DELETE',headers:authHeaders()});
+  if(r.ok){ toast('삭제됨 (접속 완전 차단)'); loadEmployees(); } else toast('실패 (권한 확인)');
+}
+async function changeMyPw(){
+  const pw=document.getElementById('emp-mypw').value||'';
+  if(pw.length<6){ toast('비밀번호는 6자 이상'); return; }
+  try{ await idp('update',{idToken:AUTH.idToken,password:pw,returnSecureToken:true}); document.getElementById('emp-mypw').value=''; toast('✅ 비밀번호 변경됨'); }
+  catch(e){ if(/CREDENTIAL_TOO_OLD|TOKEN_EXPIRED/.test(e.message)){ await refreshNow(); toast('다시 한 번 눌러주세요'); } else toast('실패: '+e.message); }
+}
+
+tryAutoLogin();
 </script>
 </body>
 </html>
