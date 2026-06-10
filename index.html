@@ -374,7 +374,7 @@ function renderTeams(){
 function renderEmpForm(){
   const ex=document.getElementById('emp-extra'); if(!ex) return;
   if(AUTH.me.role==='superadmin'){
-    ex.innerHTML='<label>팀</label><select id="emp-team" style="width:100%;padding:9px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;"><option value="">팀 선택</option>'+TEAMS.map(t=>'<option value="'+esc(t.name)+'">'+esc(t.name)+'</option>').join('')+'</select>'
+    ex.innerHTML='<label>팀</label><select id="emp-team" onchange="onTeamPick(this)" style="width:100%;padding:9px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;"><option value="">팀 선택</option>'+TEAMS.map(t=>'<option value="'+esc(t.name)+'">'+esc(t.name)+'</option>').join('')+'<option value="__new__">➕ 새 팀 만들기…</option></select>'
       +'<label>역할</label><select id="emp-role" style="width:100%;padding:9px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;"><option value="member">직원</option><option value="leader">팀장</option></select>';
   } else { ex.innerHTML=''; }
 }
@@ -396,12 +396,24 @@ function renderEmployees(){
       }).join('')
   ).join('');
 }
-async function addTeam(){
-  const name=(document.getElementById('emp-newteam').value||'').trim(); if(!name) return;
+async function createTeam(name){
   const id='t'+Date.now();
   const body=JSON.stringify({fields:{name:{stringValue:name},createdAt:{integerValue:String(Date.now())}}});
   const r=await fetch(FS+'/teams/'+id+'?key='+KEY,{method:'PATCH',headers:authHeaders(),body});
-  if(r.ok){ document.getElementById('emp-newteam').value=''; toast('✅ 팀 추가됨'); loadEmployees(); } else toast('실패 (권한 확인)');
+  if(!r.ok){ toast('실패 (권한 확인)'); return false; }
+  toast('✅ 팀 추가됨'); return true;
+}
+async function addTeam(){
+  const name=(document.getElementById('emp-newteam').value||'').trim(); if(!name) return;
+  if(await createTeam(name)){ document.getElementById('emp-newteam').value=''; loadEmployees(); }
+}
+// 직원 추가 폼의 팀 드롭다운에서 "➕ 새 팀 만들기" 선택 시
+async function onTeamPick(sel){
+  if(sel.value!=='__new__') return;
+  const name=(prompt('새 팀 이름을 입력하세요 (예: 1팀)')||'').trim();
+  if(!name){ sel.value=''; return; }
+  if(await createTeam(name)){ await loadEmployees(); const s=document.getElementById('emp-team'); if(s) s.value=name; }
+  else sel.value='';
 }
 async function addEmployee(){
   const id=(document.getElementById('emp-id').value||'').trim().toLowerCase();
