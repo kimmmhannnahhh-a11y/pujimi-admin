@@ -379,7 +379,7 @@ function renderTeams(){
     const g=groupTeams();
     el.innerHTML=Object.keys(g).map(grp=>
       '<div style="margin-bottom:8px;"><div style="font-size:11px;font-weight:800;color:#888;margin-bottom:4px;">'+esc(grp)+'</div>'
-      +'<div style="display:flex;flex-wrap:wrap;gap:5px;">'+g[grp].map(t=>'<span style="padding:4px 11px;background:#f3f0ff;color:#6c63ff;border-radius:12px;font-size:12px;font-weight:700;">'+esc(t.name)+'</span>').join('')+'</div></div>'
+      +'<div style="display:flex;flex-wrap:wrap;gap:5px;">'+g[grp].map(t=>'<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 6px 4px 11px;background:#f3f0ff;color:#6c63ff;border-radius:12px;font-size:12px;font-weight:700;">'+esc(t.name)+'<button onclick="delTeam(\''+t.id+'\',\''+esc(t.name)+'\')" title="팀 삭제" style="border:none;background:rgba(108,99,255,.18);color:#6c63ff;width:16px;height:16px;border-radius:50%;cursor:pointer;font-size:11px;line-height:1;padding:0;">×</button></span>').join('')+'</div></div>'
     ).join('');
   }
   const dl=document.getElementById('group-list');
@@ -424,6 +424,13 @@ async function addTeam(){
   const group=(document.getElementById('emp-newgroup').value||'').trim();
   if(!name) return;
   if(await createTeam(name, group)){ document.getElementById('emp-newteam').value=''; loadEmployees(); }
+}
+async function delTeam(id, name){
+  const inTeam=EMPLOYEES.filter(e=>e.team===name).length;
+  const warn=inTeam?('\n\n이 팀에 직원 '+inTeam+'명이 있어요. 팀을 지워도 직원은 남지만 팀 목록·드롭다운에선 빠져요.'):'';
+  if(!confirm("'"+name+"' 팀을 삭제할까요?"+warn)) return;
+  const r=await fetch(FS+'/teams/'+id+'?key='+KEY,{method:'DELETE',headers:authHeaders()});
+  if(r.ok){ toast('팀 삭제됨'); loadEmployees(); } else toast('실패 (권한 확인)');
 }
 // 직원 추가 폼의 팀 드롭다운에서 "➕ 새 팀 만들기" 선택 시
 async function onTeamPick(sel){
