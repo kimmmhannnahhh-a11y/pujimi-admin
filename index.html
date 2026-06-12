@@ -102,6 +102,14 @@
     <div class="org-tree" id="org-tree"></div>
   </div>
 </div>
+<!-- 팀 선택(조직도) 모달 -->
+<div class="org-overlay" id="orgpick-modal" onclick="if(event.target===this)closeOrgPick()">
+  <div class="org-box">
+    <div class="org-head"><b>팀 선택</b><button class="org-x" onclick="closeOrgPick()">×</button></div>
+    <div class="org-search-wrap"><input id="orgpick-search" placeholder="부서 · 팀 검색" oninput="renderPick()"></div>
+    <div class="org-tree" id="orgpick-tree"></div>
+  </div>
+</div>
 <header>
   <h1>🐾 푸짐이 관리자</h1>
   <p>여기서 수정하면 푸짐이 챗봇에 바로 반영돼요</p>
@@ -418,7 +426,7 @@ function renderEmpForm(){
   if(AUTH.me.role==='superadmin'){
     const g=groupTeams();
     const opts=Object.keys(g).map(grp=>'<optgroup label="'+esc(grp)+'" style="color:#6c63ff;font-weight:700;">'+g[grp].map(t=>'<option value="'+esc(t.name)+'" style="color:#333;">'+esc(t.name)+'</option>').join('')+'</optgroup>').join('');
-    ex.innerHTML='<label>팀</label><select id="emp-team" style="width:100%;padding:9px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;"><option value="">팀 선택</option>'+opts+'</select>'
+    ex.innerHTML='<label>팀</label><input id="emp-team" readonly placeholder="조직도에서 팀 선택" onclick="openOrgPick()" style="width:100%;padding:9px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;cursor:pointer;background:#fff;">'
       +'<label>역할</label><select id="emp-role" style="width:100%;padding:9px 10px;border:1px solid #ddd;border-radius:7px;font-family:inherit;font-size:13px;"><option value="member">직원</option><option value="leader">관리자</option></select>';
   } else { ex.innerHTML=''; }
 }
@@ -597,6 +605,60 @@ async function moveEmpToTeam(uid, teamName){
   tree.addEventListener('dragleave', e=>{ const tt=e.target.closest('[data-teamname]'); if(tt && !tt.contains(e.relatedTarget)) tt.classList.remove('org-drop'); });
   tree.addEventListener('drop', e=>{ const tt=e.target.closest('[data-teamname]'); if(tt && dragUid){ e.preventDefault(); tt.classList.remove('org-drop'); moveEmpToTeam(dragUid, tt.getAttribute('data-teamname')); dragUid=null; } });
   tree.addEventListener('dragend', ()=>{ dragUid=null; tree.querySelectorAll('.org-drop').forEach(x=>x.classList.remove('org-drop')); });
+})();
+
+// ===== 조직도 팀 선택 (다우오피스 구조 그대로) =====
+const ORG_TREE=[
+  {name:"우리정보통신",children:[
+    {name:"경영지원실",children:[{name:"재무회계팀"},{name:"인사총무팀"}]},
+    {name:"마케팅부",children:[{name:"퍼포먼스팀"},{name:"커뮤니케이션파트"},{name:"콘텐츠파트"}]}
+  ]},
+  {name:"우신(협력사)",children:[
+    {name:"우신영업사업부",children:[{name:"우신1팀"}]},
+    {name:"우신기술사업부",children:[{name:"KT남천안센터",children:[{name:"남천안영업팀"},{name:"남천안CS팀"}]}]}
+  ]},
+  {name:"우성(협력사)",children:[{name:"우성영업사업부"},{name:"우성1팀"},{name:"우성2팀"}]},
+  {name:"웨이브넷(협력사)",children:[
+    {name:"유통사업부",children:[{name:"유통지원팀"},{name:"유통1팀"},{name:"유통2팀"},{name:"유통3팀"}]}
+  ]},
+  {name:"우주커넥트(협력사)",children:[
+    {name:"영업부",children:[{name:"시흥영업1팀"},{name:"시흥영업2팀"},{name:"천안영업팀",children:[{name:"천안청약팀"}]},{name:"영업지원팀"}]},
+    {name:"모바일유통사업부"}
+  ]},
+  {name:"대성(협력사)"},
+  {name:"영업정산"},
+  {name:"(휴)"},
+  {name:"(퇴)"},
+  {name:"전사(보고용)"}
+];
+let _pickExpanded={};
+function openOrgPick(){ var m=document.getElementById('orgpick-modal'); if(!m)return; m.style.display='flex'; var s=document.getElementById('orgpick-search'); if(s)s.value=''; renderPick(); }
+function closeOrgPick(){ var m=document.getElementById('orgpick-modal'); if(m)m.style.display='none'; }
+function pickTeam(path){ var inp=document.getElementById('emp-team'); if(inp)inp.value=path; closeOrgPick(); }
+function renderPick(){
+  var wrap=document.getElementById('orgpick-tree'); if(!wrap)return;
+  var q=((document.getElementById('orgpick-search')||{}).value||'').trim().toLowerCase();
+  if(q){
+    var hits=[];
+    (function rec(nodes,path){ nodes.forEach(function(n){ var p=path.concat(n.name); if(n.name.toLowerCase().indexOf(q)>=0) hits.push(p); if(n.children)rec(n.children,p); }); })(ORG_TREE,[]);
+    wrap.innerHTML = hits.length? hits.map(function(p){ return '<div class="org-emp clickable"><div class="org-emp-main" data-sel="'+esc(p.join(' > '))+'"><b>'+esc(p[p.length-1])+'</b> <span class="org-sub">'+esc(p.join(' > '))+'</span></div></div>'; }).join('') : '<div class="org-empty">결과가 없어요</div>';
+    return;
+  }
+  function node(n,path){
+    var p=path.concat(n.name); var key=p.join('>'); var has=n.children&&n.children.length;
+    var open=_pickExpanded[key]; var chev=has?(open?'▾':'▸'):'';
+    var html='<div class="org-row" data-pk="'+esc(key)+'"><span class="chev" data-tg="'+(has?'1':'')+'">'+chev+'</span><span class="org-name" data-sel="'+esc(p.join(' > '))+'">'+esc(n.name)+'</span></div>';
+    if(has) html+='<div class="org-children" style="display:'+(open?'block':'none')+'">'+n.children.map(function(c){return node(c,p);}).join('')+'</div>';
+    return '<div class="org-group">'+html+'</div>';
+  }
+  wrap.innerHTML=ORG_TREE.map(function(n){return node(n,[]);}).join('');
+}
+(function(){ var t=document.getElementById('orgpick-tree'); if(!t)return;
+  t.addEventListener('click',function(e){
+    var chev=e.target.closest('[data-tg="1"]');
+    if(chev){ var row=chev.closest('.org-row'); _pickExpanded[row.getAttribute('data-pk')]=!_pickExpanded[row.getAttribute('data-pk')]; renderPick(); return; }
+    var nm=e.target.closest('[data-sel]'); if(nm){ pickTeam(nm.getAttribute('data-sel')); }
+  });
 })();
 
 tryAutoLogin();
